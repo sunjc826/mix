@@ -1,5 +1,8 @@
 #include <cmath>
 #include <config.h>
+#include <functional>
+#include <optional>
+#include <stdexcept>
 #include <utilities.h>
 
 #include <cstddef>
@@ -9,6 +12,8 @@
 #include <span>
 #include <type_traits>
 #include <tuple>
+
+constexpr size_t main_memory_size = 4000 /* MIX words */;
 
 // A native byte always represents 256 values
 constexpr size_t native_byte_size = 256;
@@ -29,8 +34,11 @@ static_assert(byte_size >= minimum_byte_size);
 template <typename T>
 constexpr size_t representable_values_v = sizeof(T) * native_byte_size;
 
+// A native unsigned integer type capable of representing all values in a MIX byte.
+// Purposely made unsigned since bytes have no sign.
 using ByteInt = unsigned;
 
+// A native signed integer type capable of representing any MIX integral value.
 // Instead of doing big integer arithmetic, let us
 // require that NativeInt is large enough to hold the largest value of 
 // any representable integral value.
@@ -71,6 +79,15 @@ pow(ByteInt base)
     return pow(base, exponent);
 }
 
+static __attribute__((always_inline))
+void check_address_bounds(NativeInt value)
+{
+    if (value < 0)
+        throw std::runtime_error("Negative address");
+    else if (value >= main_memory_size)
+        throw std::runtime_error("Overflowing address");
+}
+
 // Every negative MIX integral value must be representable by NativeInt
 static_assert(-(lut[numerical_bytes_in_word] - 1) >= std::numeric_limits<NativeInt>::min());
 // Every positive MIX integral value must be representable by NativeInt
@@ -101,8 +118,33 @@ struct Word
     std::span<Byte, bytes_in_word> sp;
 };
 
+struct FieldSpec
+{
+    ByteInt L, R;
+
+    ByteInt length() const
+    {
+        return R - L;
+    }
+
+    ByteInt make_F_byte() const
+    {
+        return 8 * L + R;
+    }
+};
+
+struct Slice
+{
+    std::span<Byte> sp;
+    FieldSpec spec;
+
+    NativeInt native_value() const;
+};
+
+struct Machine;
 struct Instruction : public Word
 {
+    Machine &m;
     std::tuple<Sign &, ByteInt &, ByteInt &> A()
     {
         return { sp[0].sign, sp[1].byte, sp[2].byte };
@@ -113,19 +155,39 @@ struct Instruction : public Word
         return sp[3].byte;
     }
 
+    // Returns *M, where * represents dereferencing
+    std::span<Byte, bytes_in_word> M_value();
+
     ByteInt &F()
     {
         return sp[4].byte;
     }
 
+    // Returns M(F)
+    Slice MF();
+
     ByteInt &C()
     {
         return sp[5].byte;
     }
+
+    // Extracts and returns L and R from F()
+    FieldSpec field_spec();
+
+    NativeInt native_A();
+
+    // Returns rIi, where i is the value of I()
+    NativeInt native_I_value_or_zero();
+
+    // Returns M = A + rIi
+    NativeInt native_M();
+
+    // Returns native value of M(F)
+    NativeInt native_MF();
 };
 
 
-template <bool is_signed, size_t size>
+template <bool is_signed, size_t size = std::dynamic_extent>
 struct Int
 {
     static constexpr size_t num_begin = is_signed ? 1 : 0;
@@ -154,8 +216,42 @@ struct Int
     NativeInt native_value() const
     {
         NativeInt accum = 0;
+        for (size_t i = is_signed; i < sp.size(); i++)
+            accum += lut[i] * sp[i].byte;
+        return native_sign() * accum;
+    }
+};
+
+template <bool is_signed, size_t size = std::dynamic_extent>
+struct IntView
+{
+    static constexpr size_t num_begin = is_signed ? 1 : 0;
+    // If there is a sign byte, then the total number of bytes must > 1,
+    // since there must be at least 1 numerical byte.
+    static_assert(!is_signed || size > 1);
+    std::span<Byte const, size> sp;
+    IntView(Int<is_signed, size> v)
+        : sp(v.sp)
+    {}
+
+    NativeInt native_sign() const
+    {
+        return ::native_sign(sign());
+    }
+
+    std::conditional_t<is_signed, Sign const &, Sign> sign() const
+    {
+        if constexpr(is_signed)
+            return sp[0].sign;
+        else
+            return s_plus;
+    }
+
+    NativeInt native_value() const
+    {
+        NativeInt accum = 0;
         for (size_t i = is_signed; i < size; i++)
-            accum += lut[i] * sp[i].value;
+            accum += lut[i] * sp[i].byte;
         return native_sign() * accum;
     }
 };
@@ -173,6 +269,11 @@ struct NumberRegister
     {
         return {.sp = arr};
     }
+
+    IntView<true, 6> value() const
+    {
+        return REMOVE_CONST_FROM_PTR(this)->value();
+    }
 };
 
 struct IndexRegister
@@ -187,6 +288,16 @@ struct IndexRegister
     {
         return {.sp = arr};
     }
+
+    IntView<true, 3> value() const
+    {
+        return REMOVE_CONST_FROM_PTR(this)->value();
+    }
+
+    NativeInt native_value() const
+    {
+        return value().native_value();
+    }
 };
 
 struct JumpRegister
@@ -196,6 +307,11 @@ struct JumpRegister
     Int<false, 2> value()
     {
         return {.sp = arr};
+    }
+
+    IntView<false, 2> value() const
+    {
+        return REMOVE_CONST_FROM_PTR(this)->value();
     }
 };
 
@@ -403,7 +519,7 @@ class Machine
     CompareResult comparison;  
     
     // A MIX machine has 4000 memory cells
-    std::array<Byte, 4000> memory;
+    std::array<Byte, main_memory_size * bytes_in_word> memory;
 
     std::tuple<NumberRegister &, NumberRegister &> rAX()
     {
@@ -412,12 +528,41 @@ class Machine
 
     Instruction current_instruction()
     {
-        return Instruction{Word{.sp = std::span<Byte, 6>( memory.begin() + pc, 6 )}};
+        return Instruction{Word{.sp = std::span<Byte, 6>( memory.begin() + pc, 6 )}, .m = *this};
     }
 
     void increment_pc()
     {
         pc += bytes_in_word;
+    }
+friend class Instruction;
+    __attribute__((always_inline))
+    std::optional<std::reference_wrapper<IndexRegister>> get_index_register(ByteInt index)
+    {
+        switch (index)
+        {
+        case 1:
+            return rI1;
+        case 2:
+            return rI2;
+        case 3:
+            return rI3;
+        case 4:
+            return rI4;
+        case 5:
+            return rI5;
+        case 6:
+            return rI6;
+        default:
+            return {};
+        }
+    }
+
+    __attribute__((always_inline))
+    std::span<Byte, 6> get_memory_word(NativeInt address)
+    {
+        check_address_bounds(address);
+        return std::span<Byte, 6>{memory.begin() + address * bytes_in_word, bytes_in_word};
     }
 
     void do_nop();
