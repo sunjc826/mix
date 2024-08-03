@@ -5,6 +5,11 @@
 #include <stdexcept>
 #include <string>
 
+void Word::store(std::span<Byte, bytes_in_word> new_word)
+{
+    std::copy(new_word.begin(), new_word.end(), sp.begin());
+}
+
 NativeInt Instruction::native_A()
 {
     auto const [s, b1, b2] = A();
@@ -17,7 +22,7 @@ NativeInt Instruction::native_A()
 
 NativeInt Instruction::native_I_value_or_zero()
 {
-    ByteInt b3 = I();
+    NativeByte b3 = I();
     if (b3 == 0)
         return 0;
     if (b3 >= 6)
@@ -44,7 +49,7 @@ std::span<Byte, bytes_in_word> Instruction::M_value()
 // (L:R) is 8L + R
 FieldSpec Instruction::field_spec()
 {
-    ByteInt const &field = F();
+    NativeByte const &field = F();
     return { .L = field / 8, .R = field % 8 };
 }
 
@@ -80,10 +85,10 @@ void Machine::do_nop()
     increment_pc();
 }
 
-// rA + M(F)
 void Machine::do_add()
 {
     Instruction inst = current_instruction();
+    rA.store<OverflowPolicy::set_overflow_bit>(rA.native_value() + inst.native_MF());
     increment_pc();
 }
 
@@ -95,6 +100,8 @@ void Machine::do_fadd()
 
 void Machine::do_sub()
 {
+    Instruction inst = current_instruction();
+    rA.store<OverflowPolicy::set_overflow_bit>(rA.native_value() - inst.native_MF());
     increment_pc();
 }
 
