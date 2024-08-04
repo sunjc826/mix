@@ -1,250 +1,242 @@
-#include <algorithm>
-#include <cmath>
-#include <config.h>
-#include <functional>
-#include <optional>
-#include <stdexcept>
-#include <utilities.h>
-
-#include <cstddef>
-#include <limits>
-#include <string>
-#include <string_view>
-#include <span>
-#include <type_traits>
-#include <tuple>
-
+#pragma once
 #include <machine.decl.h>
+#include <register.h>
+#include <instruction.h>
 
-// Instead of providing a generalized constexpr integral pow function,
-// let's only compute powers up to 11 due to rAX.
-// Higher powers are unnecessary.
-static __attribute__((always_inline))
-constexpr std::array<NativeInt, 2 * numerical_bytes_in_word + 1> 
-pow_lookup_table(NativeByte base)
+constexpr std::array character_set
 {
-    std::array<NativeInt, 2 * numerical_bytes_in_word + 1> lut;
-    lut[0] = 1;
-    for (size_t i = 1; i < lut.size(); i++)
-        lut[i] = lut[i - 1] * base;
-    return lut;
-}
+    " ",
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "Δ",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "Σ",
+    "Π",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y",
+    "Z",
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    ".",
+    ",",
+    "(",
+    ")",
+    "+",
+    "-",
+    "*",
+    "/",
+    "=",
+    "$",
+    "<",
+    ">",
+    "@",
+    ";",
+    ":",
+    "'",
+};
 
-constexpr auto lut = pow_lookup_table(byte_size);
-
-static __attribute__((always_inline))
-constexpr NativeInt
-pow(NativeByte base, size_t exponent)
+enum OpCode : NativeByte 
 {
-    return pow_lookup_table(base)[exponent];
-}
-
-template <size_t exponent>
-static __attribute__((always_inline))
-constexpr NativeInt
-pow(NativeByte base)
+    op_nop = 0,
+    op_add = 1,
+    op_fadd = 1,
+    op_sub = 2,
+    op_fsub = 2,
+    op_mul = 3,
+    op_fmul = 3,
+    op_div = 4,
+    op_fdiv = 4,
+    op_num = 5,
+    op_char = 5,
+    op_hlt = 5,
+    op_sla = 6,
+    op_sra = 6,
+    op_slax = 6,
+    op_srax = 6,
+    op_slc = 6,
+    op_src = 6,
+    op_move = 7,
+    op_lda = 8,
+    op_ld1,
+    op_ld2,
+    op_ld3,
+    op_ld4,
+    op_ld5,
+    op_ld6,
+    op_ldx,
+    op_ldan = 16,
+    op_ld1n,
+    op_ld2n,
+    op_ld3n,
+    op_ld4n,
+    op_ld5n,
+    op_ld6n,
+    op_ldxn,
+    op_sta = 24,
+    op_st1,
+    op_st2,
+    op_st3,
+    op_st4,
+    op_st5,
+    op_st6,
+    op_stx,
+    op_stj = 32,
+    op_stz = 33,
+    op_jbus = 34,
+    op_ioc = 35,
+    op_in = 36,
+    op_out = 37,
+    op_jred = 38,
+    op_jmp= 39,
+    op_jsj = 39,
+    op_jov = 39,
+    op_jnov = 39,
+    op_ja = 40,
+    op_j1,
+    op_j2,
+    op_j3,
+    op_j4,
+    op_j5,
+    op_j6,
+    op_jx,
+    op_inca = 48,
+    op_inc1,
+    op_inc2,
+    op_inc3,
+    op_inc4,
+    op_inc5,
+    op_inc6,
+    op_incx,
+    op_deca = 48,
+    op_dec1,
+    op_dec2,
+    op_dec3,
+    op_dec4,
+    op_dec5,
+    op_dec6,
+    op_decx,
+    op_enta = 48,
+    op_ent1,
+    op_ent2,
+    op_ent3,
+    op_ent4,
+    op_ent5,
+    op_ent6,
+    op_entx,
+    op_enna = 48,
+    op_enn1,
+    op_enn2,
+    op_enn3,
+    op_enn4,
+    op_enn5,
+    op_enn6,
+    op_ennx,
+    op_cmpa = 56,
+    op_fcmp = 56,
+    op_cmp1,
+    op_cmp2,
+    op_cmp3,
+    op_cmp4,
+    op_cmp5,
+    op_cmp6,
+    op_cmpx,
+    op_max /* not an op */,
+};
+struct Op
 {
-    static_assert(0 <= exponent && exponent <= 2 * numerical_bytes_in_word);
-    return pow(base, exponent);
-}
-
-static __attribute__((always_inline))
-void check_address_bounds(NativeInt value)
+    std::string_view const name;
+    void (Machine::*const do_op)();
+    __attribute__((always_inline)) inline 
+    void operator()(Machine &m) const;
+};
+// Represents the MIX machine state
+class Machine
 {
-    if (value < 0)
-        throw std::runtime_error("Negative address");
-    else if (value >= main_memory_size)
-        throw std::runtime_error("Overflowing address");
-}
+    friend class Instruction;
+    template <bool, size_t> 
+    friend struct Register;
 
-// Every negative MIX integral value must be representable by NativeInt
-static_assert(-(lut[numerical_bytes_in_word] - 1) >= std::numeric_limits<NativeInt>::min());
-// Every positive MIX integral value must be representable by NativeInt
-static_assert(lut[numerical_bytes_in_word] - 1 <= std::numeric_limits<NativeInt>::max());
+    // program counter
+    NativeByte pc;
 
-static __attribute__((always_inline))
-constexpr NativeInt 
-native_sign(Sign sign)
-{
-    return sign == s_plus ? 1 : -1; 
-}
+    NumberRegister rA{*this}, rX{*this};
+    IndexRegister rI1{*this}, rI2{*this}, rI3{*this}, rI4{*this}, rI5{*this}, rI6{*this};
+    JumpRegister rJ{*this};
 
-template <bool is_signed, size_t size>
-NativeInt Int<is_signed, size>::native_sign() const
-{
-    return ::native_sign(sign());
-}
+    // overflow toggle
+    bool overflow;
 
-template <bool is_signed, size_t size>
-std::conditional_t<is_signed, Sign &, Sign> Int<is_signed, size>::sign()
-{
-    if constexpr(is_signed)
-        return sp[0].sign;
-    else
-        return s_plus;
-}
-
-template <bool is_signed, size_t size>
-std::conditional_t<is_signed, Sign const &, Sign> Int<is_signed, size>::sign() const
-{
-    return REMOVE_CONST_FROM_PTR(this)->sign();
-}
-
-template <bool is_signed, size_t size>
-NativeInt Int<is_signed, size>::native_value() const
-{
-    NativeInt accum = 0;
-    for (size_t i = is_signed; i < sp.size(); i++)
-        accum += lut[i] * sp[i].byte;
-    return native_sign() * accum;
-}
-
-template <bool is_signed, size_t size>
-NativeInt IntView<is_signed, size>::native_sign() const
-{
-    return ::native_sign(sign());
-}
-
-template <bool is_signed, size_t size>
-std::conditional_t<is_signed, Sign const &, Sign> IntView<is_signed, size>::sign() const
-{
-    if constexpr(is_signed)
-        return sp[0].sign;
-    else
-        return s_plus;
-}
-
-template <bool is_signed, size_t size>
-NativeInt IntView<is_signed, size>::native_value() const
-{
-    NativeInt accum = 0;
-    for (size_t i = is_signed; i < size; i++)
-        accum += lut[i] * sp[i].byte;
-    return native_sign() * accum;
-}
-
-template <size_t size>
-ByteConversionResult<size> as_bytes(NativeInt value)
-{
-    Sign sign;
-    if (value < 0)
-    {
-        sign = s_minus;
-        value = -value;
-    }
-    else
-    {
-        sign = s_plus;
-    }
-
-    ByteConversionResult<size> result;
-    for (size_t s = size; s --> 1;)
-    {
-        result.bytes[s].byte = value % byte_size;
-        value /= byte_size;
-    }
-
-    result.bytes[0].sign = sign;
+    // comparison indicator
+    CompareResult comparison;  
     
-    result.overflow = value > 0;
+    // A MIX machine has 4000 memory cells
+    std::array<Byte, main_memory_size * bytes_in_word> memory;
 
-    return result;
-}
+    __attribute__((always_inline)) inline
+    ExtendedRegister get_rAX();
 
-template <bool is_signed, size_t size>
-std::conditional_t<is_signed, Sign &, Sign> Register<is_signed, size>::sign()
-{
-    if constexpr (is_signed)
-        return arr[0].sign;
-    else
-        return s_plus;
-}
+    __attribute__((always_inline)) inline
+    Instruction current_instruction();
 
-template <bool is_signed, size_t size>
-Int<is_signed, size> Register<is_signed, size>::value()
-{
-    return {.sp = arr};
-}
+    __attribute__((always_inline)) inline
+    void increment_pc();
 
-template <bool is_signed, size_t size>
-IntView<is_signed, size> Register<is_signed, size>::value() const
-{
-    return REMOVE_CONST_FROM_PTR(this)->value();
-}
+    __attribute__((always_inline)) inline
+    std::optional<std::reference_wrapper<IndexRegister>> get_index_register(NativeByte index);
 
-template <bool is_signed, size_t size>
-NativeInt Register<is_signed, size>::native_value() const
-{
-    return value().native_value();
-}
+    __attribute__((always_inline)) inline
+    std::span<Byte, 6> get_memory_word(NativeInt address);
 
-template <bool is_signed, size_t size>
-void Register<is_signed, size>::store(std::span<Byte, size> sp)
-{
-    std::copy(sp.begin(), sp.end(), arr.begin());
-}
+    void do_nop();
+    // rA <- rA + M(F)
+    void do_add();
+    void do_fadd();
+    void do_sub();
+    void do_fsub();
+    void do_mul();
+    void do_fmul();
+    void do_div();
+    void do_fdiv();
+    void do_num();
+    void do_hlt();
+    void do_sla();
+    void do_sra();
+    void do_slax();
+    void do_srax();
+    void do_slc();
+    
+public:
+    Op current_op();
+    void step();
 
-template <bool is_signed, size_t size>
-template <OverflowPolicy overflow_policy>
-void Register<is_signed, size>::store(NativeInt value)
-{
-    ByteConversionResult<size> const bytes = as_bytes<size>(value);
-    if constexpr (overflow_policy == OverflowPolicy::set_overflow_bit)
-        m.overflow = true;
-    else if constexpr (overflow_policy == OverflowPolicy::throw_exception)
-        throw std::runtime_error("overflow after conversion to bytes");
-    store(bytes);
-}
+};
 
-__attribute__((always_inline))
-void Op::operator()(Machine &m) const
-{
-    (m.*do_op)();
-}
-
-__attribute__((always_inline))
-std::tuple<NumberRegister &, NumberRegister &> Machine::rAX()
-{
-    return {rA, rX};
-}
-
-__attribute__((always_inline))
-Instruction Machine::current_instruction()
-{
-    return Instruction{Word{.sp = std::span<Byte, 6>( memory.begin() + pc, 6 )}, .m = *this};
-}
-
-__attribute__((always_inline))
-void Machine::increment_pc()
-{
-    pc += bytes_in_word;
-}
-
-__attribute__((always_inline))
-std::optional<std::reference_wrapper<IndexRegister>> Machine::get_index_register(NativeByte index)
-{
-    switch (index)
-    {
-    case 1:
-        return rI1;
-    case 2:
-        return rI2;
-    case 3:
-        return rI3;
-    case 4:
-        return rI4;
-    case 5:
-        return rI5;
-    case 6:
-        return rI6;
-    default:
-        return {};
-    }
-}
-
-__attribute__((always_inline))
-std::span<Byte, 6> Machine::get_memory_word(NativeInt address)
-{
-    check_address_bounds(address);
-    return std::span<Byte, 6>{memory.begin() + address * bytes_in_word, bytes_in_word};
-}
+#include <machine.impl.h>
