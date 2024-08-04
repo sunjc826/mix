@@ -7,12 +7,6 @@ void Op::operator()(Machine &m) const
 }
 
 __attribute__((always_inline)) inline
-ExtendedRegister Machine::get_rAX()
-{
-    return {rA, rX};
-}
-
-__attribute__((always_inline)) inline
 Instruction Machine::current_instruction()
 {
     return Instruction{Word{.sp = std::span<Byte, 6>( memory.begin() + pc, 6 )}, .m = *this};

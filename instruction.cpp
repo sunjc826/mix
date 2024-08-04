@@ -1,5 +1,6 @@
 #include <instruction.h>
 #include <register.h>
+#include <machine.h>
 
 void Word::store(std::span<Byte, bytes_in_word> new_word)
 {
@@ -52,9 +53,7 @@ FieldSpec Instruction::field_spec() const
 Slice Instruction::MF() const
 {
     std::span<Byte, bytes_in_word> const value_at_address_M = M_value();
-    FieldSpec const spec = field_spec();
-    std::span<Byte> const subspan = value_at_address_M.subspan(spec.L, spec.length());
-    return { .sp = subspan, .spec = spec };
+    return Slice(value_at_address_M, field_spec());
 }
 
 NativeInt Instruction::native_MF() const

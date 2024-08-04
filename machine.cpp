@@ -1,4 +1,5 @@
 #include "base.h"
+#include "instruction.h"
 #include "machine.decl.h"
 #include "register.decl.h"
 #include <iostream>
@@ -13,7 +14,7 @@ void Machine::do_nop()
 void Machine::do_add()
 {
     Instruction const inst = current_instruction();
-    if (rA.store(rA.native_value() + inst.native_MF()))
+    if (rA.load(rA.native_value() + inst.native_MF()))
         overflow = true;
     increment_pc();
 }
@@ -27,7 +28,7 @@ void Machine::do_fadd()
 void Machine::do_sub()
 {
     Instruction const inst = current_instruction();
-    if (rA.store(rA.native_value() - inst.native_MF()))
+    if (rA.load(rA.native_value() - inst.native_MF()))
         overflow = true;
     increment_pc();
 }
@@ -42,8 +43,7 @@ void Machine::do_mul()
 {
     Instruction const inst = current_instruction();
     NativeInt const mul_result = rA.native_value() * inst.native_MF();
-    ExtendedRegister rAX = get_rAX();
-    rAX.store(mul_result);
+    rAX.load(mul_result);
     increment_pc();
 }
 
@@ -56,7 +56,6 @@ void Machine::do_fmul()
 void Machine::do_div()
 {
     Instruction const inst = current_instruction();
-    ExtendedRegister rAX = get_rAX();
 
     NativeInt const dividend = rAX.native_value();
     Sign const dividend_sign = rAX.sign();
@@ -70,11 +69,11 @@ void Machine::do_div()
     // sgn(rAX / V) * floor(|rAX / V|)
     // Regular division already rounds toward zero, thereby achieving the desired effect.
     NativeInt const quotient = dividend / divisor;
-    rA.store(quotient);
+    rA.load(quotient);
 
     // sgn(rAX) * (|rAX| mod |V|)
     NativeInt const remainder = dividend_sign * (std::labs(dividend) % std::labs(divisor));
-    rX.store(remainder);
+    rX.load(remainder);
 
     increment_pc();
 }
@@ -103,7 +102,7 @@ void Machine::do_num()
     if (rA.sign() == s_minus)
         value = -value;
 
-    if (rA.store(value))
+    if (rA.load(value))
         std::cerr << "Warning: overflow during NUM\n";
     increment_pc();
 }
@@ -125,6 +124,66 @@ void Machine::do_char()
 void Machine::do_hlt()
 {
     halted = true;
+}
+
+void Machine::do_sla()
+{
+    Instruction const inst = current_instruction();
+    rA.shift_left(inst.native_M());
+}
+
+void Machine::do_sra()
+{
+    Instruction const inst = current_instruction();
+    rA.shift_right(inst.native_M());
+}
+
+void Machine::do_slax()
+{
+    Instruction const inst = current_instruction();
+    rAX.shift_left(inst.native_M());
+}
+
+void Machine::do_srax()
+{
+    Instruction const inst = current_instruction();
+    rAX.shift_right(inst.native_M());
+}
+
+void Machine::do_slc()
+{
+    Instruction const inst = current_instruction();
+    rAX.shift_left_circular(inst.native_M());
+}
+
+void Machine::do_src()
+{
+    Instruction const inst = current_instruction();
+    rAX.shift_right_circular(inst.native_M());
+}
+
+void Machine::do_ld(size_t register_idx)
+{
+    Instruction const inst = current_instruction();
+    TypeErasedRegister &reg = *register_list[register_idx];
+    Slice const slice = inst.MF();
+    reg.load_throw_on_overflow(slice.native_value());
+}
+
+void Machine::do_ldn(size_t register_idx)
+{
+    Instruction const inst = current_instruction();
+    TypeErasedRegister &reg = *register_list[register_idx];
+    Slice const slice = inst.MF();
+    reg.load_throw_on_overflow(-slice.native_value());
+}
+
+void Machine::do_st(size_t register_idx)
+{
+    Instruction const inst = current_instruction();
+    TypeErasedRegister &reg = *register_list[register_idx];
+    Slice const slice = inst.MF();
+    reg.store(slice);
 }
 
 Op Machine::current_op()

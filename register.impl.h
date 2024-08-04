@@ -61,14 +61,14 @@ NativeInt Register<is_signed, size>::native_unsigned_value() const
 }
 
 template <bool is_signed, size_t size>
-void Register<is_signed, size>::store(std::span<Byte const, size> sp)
+void Register<is_signed, size>::load(std::span<Byte const, size> sp)
 {
     std::copy(sp.begin(), sp.end(), arr.begin());
 }
 
 template <bool is_signed, size_t size>
 template <bool throw_on_overflow>
-bool Register<is_signed, size>::store(NativeInt value)
+bool Register<is_signed, size>::load(NativeInt value)
 {
     ByteConversionResult<size> const result = as_bytes<size>(value);
     
@@ -78,16 +78,34 @@ bool Register<is_signed, size>::store(NativeInt value)
             throw std::runtime_error("overflow after conversion to bytes");
     }
 
-    store(result.bytes);
+    load(result.bytes);
     return result.overflow;
 }
 
 template <bool is_signed, size_t size>
 template <typename EnableIfT>
-EnableIfT::type Register<is_signed, size>::store(Sign sign, std::span<Byte const, size - 1> sp)
+EnableIfT::type Register<is_signed, size>::load(Sign sign, std::span<Byte const, size - 1> sp)
 {
     arr[0].sign = sign;
     std::copy(sp.begin(), sp.end(), arr.begin() + 1);
+}
+
+template <bool is_signed, size_t size>
+void Register<is_signed, size>::store(Slice slice)
+{
+    FieldSpec spec = slice.spec;
+    if (spec.L == 0)
+    {
+        spec.L = 1;
+        Slice own_slice(arr, spec);
+        std::copy(own_slice.sp.begin(), own_slice.sp.end(), slice.sp.begin() + 1);
+        slice.sp[0] = sign();
+    }
+    else 
+    {
+        Slice own_slice(arr, spec);
+        std::copy(own_slice.sp.begin(), own_slice.sp.end(), slice.sp.begin());
+    }
 }
 
 template <bool is_signed, size_t size>

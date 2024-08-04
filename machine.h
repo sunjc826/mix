@@ -190,6 +190,9 @@ class Machine
     NumberRegister rA, rX;
     IndexRegister rI1, rI2, rI3, rI4, rI5, rI6;
     JumpRegister rJ;
+    ExtendedRegister rAX{rA, rX};
+    std::array<TypeErasedRegister *, 9> register_list = 
+        { &rA, &rI1, &rI2, &rI3, &rI4, &rI5, &rI6, &rX, &rJ };
 
     bool halted;
 
@@ -201,9 +204,6 @@ class Machine
     
     // A MIX machine has 4000 memory cells
     std::array<Byte, main_memory_size * bytes_in_word> memory;
-
-    __attribute__((always_inline)) inline
-    ExtendedRegister get_rAX();
 
     __attribute__((always_inline)) inline
     Instruction current_instruction();
@@ -235,7 +235,20 @@ class Machine
     void do_slax();
     void do_srax();
     void do_slc();
+    void do_src();
+    void do_move();
+
+    // reg += 
     
+    void do_ld(size_t register_idx);
+    void do_ldn(size_t register_idx);
+    void do_st(size_t register_idx);
+    void do_j(size_t register_idx);
+    void do_inc(size_t register_idx);
+    void do_dec(size_t register_idx);
+    void do_ent(size_t register_idx);
+    void do_enn(size_t register_idx);
+    void do_cmp(size_t register_idx);
 public:
     Machine() = default;
     Op current_op();

@@ -150,6 +150,13 @@ struct Slice
 {
     std::span<Byte> sp;
     FieldSpec spec;
+    Slice(std::span<Byte, bytes_in_word> word, FieldSpec spec)
+        : sp(word.subspan(spec.L, spec.length())), spec(spec)
+    {}
+
+    Slice(Word word, FieldSpec spec)
+        : sp(word.sp.subspan(spec.L, spec.length())), spec(spec)
+    {}
 
     Sign sign() const
     {
@@ -161,6 +168,11 @@ struct Slice
         {
             return s_plus;
         }
+    }
+
+    size_t length()
+    {
+        return spec.length();
     }
 
     NativeInt native_value() const
