@@ -5,6 +5,12 @@
 struct Instruction : public Word
 {
     Machine &m;
+    
+    Sign &sign() const
+    {
+        return sp[0].sign;
+    }
+
     std::tuple<Sign &, NativeByte &, NativeByte &> A() const
     {
         return { sp[0].sign, sp[1].byte, sp[2].byte };

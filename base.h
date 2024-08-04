@@ -79,6 +79,14 @@ enum Sign : NativeByte
 };
 
 static __attribute__((always_inline))
+constexpr Sign 
+operator-(Sign sign)
+{
+    if (sign == s_plus) return s_minus;
+    else return s_plus;
+}
+
+static __attribute__((always_inline))
 constexpr NativeInt 
 native_sign(Sign sign);
 
@@ -150,8 +158,8 @@ struct Slice
 {
     std::span<Byte> sp;
     FieldSpec spec;
-    Slice(std::span<Byte, bytes_in_word> word, FieldSpec spec)
-        : sp(word.subspan(spec.L, spec.length())), spec(spec)
+    Slice(std::span<Byte> sp, FieldSpec spec)
+        : sp(sp.subspan(spec.L, spec.length())), spec(spec)
     {}
 
     Slice(Word word, FieldSpec spec)
@@ -161,13 +169,9 @@ struct Slice
     Sign sign() const
     {
         if (spec.L == 0)
-        {
             return sp[0].sign;
-        }
         else 
-        {
             return s_plus;
-        }
     }
 
     size_t length()

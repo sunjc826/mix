@@ -2,6 +2,7 @@
 #include "instruction.h"
 #include "machine.decl.h"
 #include "register.decl.h"
+#include <compare>
 #include <iostream>
 #include <machine.h>
 #include <stdexcept>
@@ -184,6 +185,67 @@ void Machine::do_st(size_t register_idx)
     TypeErasedRegister &reg = *register_list[register_idx];
     Slice const slice = inst.MF();
     reg.store(slice);
+}
+
+void Machine::do_stz()
+{
+    Instruction const inst = current_instruction();
+    Slice const slice = inst.MF();
+    std::fill(slice.sp.begin(), slice.sp.end(), Byte{.byte = 0});
+}
+
+void Machine::do_j(size_t register_idx)
+{
+    
+}
+
+void Machine::do_inc(size_t register_idx)
+{
+    Instruction const inst = current_instruction();
+    TypeErasedRegister &reg = *register_list[register_idx];
+    NativeInt const reg_addend = inst.native_M();
+    if (reg.increment(reg_addend))
+        overflow = true;
+}
+
+void Machine::do_dec(size_t register_idx)
+{
+    Instruction const inst = current_instruction();
+    TypeErasedRegister &reg = *register_list[register_idx];
+    NativeInt const reg_addend = -inst.native_M();
+    if (reg.increment(reg_addend))
+        overflow = true;
+}
+
+void Machine::do_ent(size_t register_idx)
+{
+    Instruction const inst = current_instruction();
+    TypeErasedRegister &reg = *register_list[register_idx];
+    NativeInt const new_reg_value = inst.native_M();
+    if (new_reg_value == 0)
+        reg.load_zero(inst.sign());
+    else
+        reg.load_throw_on_overflow(new_reg_value);
+}
+
+void Machine::do_enn(size_t register_idx)
+{
+    Instruction const inst = current_instruction();
+    TypeErasedRegister &reg = *register_list[register_idx];
+    NativeInt const M = inst.native_M();
+    if (M == 0)
+        reg.load_zero(-inst.sign());
+    else
+        reg.load_throw_on_overflow(-M);
+}
+
+void Machine::do_cmp(size_t register_idx)
+{
+    Instruction const inst = current_instruction();
+    TypeErasedRegister &reg = *register_list[register_idx];
+    Slice const mem_slice = inst.MF();
+    Slice const reg_slice = reg.make_slice(mem_slice.spec);
+    comparison = reg_slice.native_value() <=> mem_slice.native_value();
 }
 
 Op Machine::current_op()

@@ -200,7 +200,7 @@ class Machine
     bool overflow;
 
     // comparison indicator
-    CompareResult comparison;  
+    std::strong_ordering comparison{std::strong_ordering::equal};  
     
     // A MIX machine has 4000 memory cells
     std::array<Byte, main_memory_size * bytes_in_word> memory;
@@ -236,13 +236,11 @@ class Machine
     void do_srax();
     void do_slc();
     void do_src();
-    void do_move();
-
-    // reg += 
-    
+    void do_move();    
     void do_ld(size_t register_idx);
     void do_ldn(size_t register_idx);
     void do_st(size_t register_idx);
+    void do_stz();
     void do_j(size_t register_idx);
     void do_inc(size_t register_idx);
     void do_dec(size_t register_idx);
