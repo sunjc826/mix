@@ -1,6 +1,7 @@
 #pragma once
 #include <register.h>
-#include <machine.h>
+#include <stdexcept>
+
 template <bool is_signed, size_t size>
 std::conditional_t<is_signed, Sign &, Sign> Register<is_signed, size>::sign()
 {
@@ -66,19 +67,19 @@ void Register<is_signed, size>::store(std::span<Byte const, size> sp)
 }
 
 template <bool is_signed, size_t size>
-template <OverflowPolicy overflow_policy>
-void Register<is_signed, size>::store(NativeInt value)
+template <bool throw_on_overflow>
+bool Register<is_signed, size>::store(NativeInt value)
 {
-    ByteConversionResult<size> const bytes = as_bytes<size>(value);
-    if constexpr (overflow_policy == OverflowPolicy::set_overflow_bit)
-        m.overflow = true;
-    else if constexpr (overflow_policy == OverflowPolicy::do_nothing)
-        ;
-    else if constexpr (overflow_policy == OverflowPolicy::throw_exception)
-        throw std::runtime_error("overflow after conversion to bytes");
-    else
-        throw std::runtime_error("case unaccounted for");
-    store(bytes);
+    ByteConversionResult<size> const result = as_bytes<size>(value);
+    
+    if constexpr (throw_on_overflow)
+    {
+        if (result.overflow)
+            throw std::runtime_error("overflow after conversion to bytes");
+    }
+
+    store(result.bytes);
+    return result.overflow;
 }
 
 template <bool is_signed, size_t size>
@@ -87,4 +88,56 @@ EnableIfT::type Register<is_signed, size>::store(Sign sign, std::span<Byte const
 {
     arr[0].sign = sign;
     std::copy(sp.begin(), sp.end(), arr.begin() + 1);
+}
+
+template <bool is_signed, size_t size>
+void Register<is_signed, size>::shift_left(NativeInt shift_by)
+{
+    if (shift_by < 0)
+        throw std::runtime_error("Should be non-negative");
+
+    size_t i;
+    for (i = numerical_first_idx; i < size - shift_by; i++)
+        arr[i] = arr[i + shift_by];
+
+    for (; i < size;)
+        arr[i] = 0;
+}
+
+template <bool is_signed, size_t size>
+void Register<is_signed, size>::shift_right(NativeInt shift_by)
+{
+    if (shift_by < 0)
+        throw std::runtime_error("Should be non-negative");
+
+    size_t i;
+    for (i = size; i --> shift_by + numerical_first_idx;)
+        arr[i] = arr[i - shift_by];
+
+    for (; i --> numerical_first_idx;)
+        arr[i] = 0;
+}
+
+template <bool is_signed, size_t size>
+void Register<is_signed, size>::shift_left_circular(NativeInt shift_by)
+{
+    if (shift_by < 0)
+        throw std::runtime_error("Should be non-negative");
+    
+    shift_by %= unsigned_size_v;
+    std::reverse(arr.begin() + numerical_first_idx, arr.end());
+    std::reverse(arr.begin(), arr.end() - shift_by);
+    std::reverse(arr.end() - shift_by, arr.end());
+}
+
+template <bool is_signed, size_t size>
+void Register<is_signed, size>::shift_right_circular(NativeInt shift_by)
+{
+    if (shift_by < 0)
+        throw std::runtime_error("Should be non-negative");
+
+    shift_by %= unsigned_size_v;
+    std::reverse(arr.begin() + numerical_first_idx, arr.end());
+    std::reverse(arr.begin(), arr.begin() + shift_by);
+    std::reverse(arr.begin() + shift_by, arr.end());
 }

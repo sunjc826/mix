@@ -1,4 +1,9 @@
+#include "base.h"
+#include "machine.decl.h"
+#include "register.decl.h"
+#include <iostream>
 #include <machine.h>
+#include <stdexcept>
 
 void Machine::do_nop()
 {
@@ -8,7 +13,8 @@ void Machine::do_nop()
 void Machine::do_add()
 {
     Instruction const inst = current_instruction();
-    rA.store(rA.native_value() + inst.native_MF());
+    if (rA.store(rA.native_value() + inst.native_MF()))
+        overflow = true;
     increment_pc();
 }
 
@@ -21,7 +27,8 @@ void Machine::do_fadd()
 void Machine::do_sub()
 {
     Instruction const inst = current_instruction();
-    rA.store(rA.native_value() - inst.native_MF());
+    if (rA.store(rA.native_value() - inst.native_MF()))
+        overflow = true;
     increment_pc();
 }
 
@@ -48,6 +55,27 @@ void Machine::do_fmul()
 
 void Machine::do_div()
 {
+    Instruction const inst = current_instruction();
+    ExtendedRegister rAX = get_rAX();
+
+    NativeInt const dividend = rAX.native_value();
+    Sign const dividend_sign = rAX.sign();
+    
+    NativeInt const divisor = inst.native_V();
+    if (divisor == 0)
+        throw std::runtime_error("Divide by zero");
+    
+    // TODO: Check for overflow
+
+    // sgn(rAX / V) * floor(|rAX / V|)
+    // Regular division already rounds toward zero, thereby achieving the desired effect.
+    NativeInt const quotient = dividend / divisor;
+    rA.store(quotient);
+
+    // sgn(rAX) * (|rAX| mod |V|)
+    NativeInt const remainder = dividend_sign * (std::labs(dividend) % std::labs(divisor));
+    rX.store(remainder);
+
     increment_pc();
 }
 
@@ -59,12 +87,44 @@ void Machine::do_fdiv()
 
 void Machine::do_num()
 {
+    NativeInt value = 0;
+    for (size_t i = 1; i < rA.arr.size(); i++)
+    {
+        NativeByte const character_value = rA.arr[i].byte % 10;
+        value = value * byte_size + character_value;
+    }
 
+    for (size_t i = 1; i < rX.arr.size(); i++)
+    {
+        NativeByte const character_value = rX.arr[i].byte % 10;
+        value = value * byte_size + character_value;
+    }
+
+    if (rA.sign() == s_minus)
+        value = -value;
+
+    if (rA.store(value))
+        std::cerr << "Warning: overflow during NUM\n";
+    increment_pc();
+}
+
+void Machine::do_char()
+{
+    NativeInt unsigned_value = rA.native_unsigned_value();
+    for (size_t i = rX.arr.size(); i --> 1; unsigned_value /= 10)
+        rX.arr[i].byte = 30 + unsigned_value % 10;
+
+    for (size_t i = rA.arr.size(); i --> 1; unsigned_value /= 10)
+        rA.arr[i].byte = 30 + unsigned_value % 10;
+
+    if (unsigned_value > 0)
+        std::cerr << "Warning: overflow in CHAR";
+    increment_pc();
 }
 
 void Machine::do_hlt()
 {
-    
+    halted = true;
 }
 
 Op Machine::current_op()

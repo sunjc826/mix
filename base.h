@@ -151,6 +151,18 @@ struct Slice
     std::span<Byte> sp;
     FieldSpec spec;
 
+    Sign sign() const
+    {
+        if (spec.L == 0)
+        {
+            return sp[0].sign;
+        }
+        else 
+        {
+            return s_plus;
+        }
+    }
+
     NativeInt native_value() const
     {
         if (spec.L == 0)

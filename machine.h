@@ -187,9 +187,11 @@ class Machine
     // program counter
     NativeByte pc;
 
-    NumberRegister rA{*this}, rX{*this};
-    IndexRegister rI1{*this}, rI2{*this}, rI3{*this}, rI4{*this}, rI5{*this}, rI6{*this};
-    JumpRegister rJ{*this};
+    NumberRegister rA, rX;
+    IndexRegister rI1, rI2, rI3, rI4, rI5, rI6;
+    JumpRegister rJ;
+
+    bool halted;
 
     // overflow toggle
     bool overflow;
@@ -226,6 +228,7 @@ class Machine
     void do_div();
     void do_fdiv();
     void do_num();
+    void do_char();
     void do_hlt();
     void do_sla();
     void do_sra();
@@ -234,6 +237,7 @@ class Machine
     void do_slc();
     
 public:
+    Machine() = default;
     Op current_op();
     void step();
 

@@ -1,5 +1,6 @@
 #pragma once
 #include <base.h>
+#include <stdexcept>
 // Instead of providing a generalized constexpr integral pow function,
 // let's only compute powers up to 11 due to rAX.
 // Higher powers are unnecessary.
@@ -51,6 +52,15 @@ constexpr NativeInt
 native_sign(Sign sign)
 {
     return sign == s_plus ? 1 : -1; 
+}
+
+static __attribute__((always_inline))
+constexpr Sign
+sign(NativeInt value)
+{
+    if (value == 0)
+        throw std::runtime_error("Unknown sign");
+    return value > 0 ? s_plus : s_minus;
 }
 
 template <bool is_signed, size_t size>

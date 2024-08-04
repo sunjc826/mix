@@ -9,7 +9,7 @@ void Op::operator()(Machine &m) const
 __attribute__((always_inline)) inline
 ExtendedRegister Machine::get_rAX()
 {
-    return {*this, rA, rX};
+    return {rA, rX};
 }
 
 __attribute__((always_inline)) inline
