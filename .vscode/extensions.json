@@ -1,0 +1,9 @@
+{
+    "recommendations": [
+        "ms-vscode.cpptools",
+        "llvm-vs-code-extensions.vscode-clangd",
+        "timonwong.shellcheck",
+        "ms-vscode.makefile-tools",
+        "ms-azuretools.vscode-docker"
+    ]
+}
