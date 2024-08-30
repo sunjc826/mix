@@ -2,6 +2,7 @@
 #include <base.h>
 #include <register.decl.h>
 
+// Useful if we get overwhelmed by templates and want to use runtime polymorphism
 struct TypeErasedRegister
 {
     virtual bool get_is_signed() const = 0;
@@ -15,9 +16,9 @@ struct TypeErasedRegister
     virtual void load_throw_on_overflow(NativeInt value) = 0;
     virtual void load_zero(Sign sign) = 0;
     virtual bool increment(NativeInt addend) { return load_no_throw_on_overflow(native_value() + addend); };
-    void load(Slice slice) { load_throw_on_overflow(slice.native_value()); }
-    virtual void store(Slice slice);
-    Slice make_slice(FieldSpec spec);
+    void load(SliceView slice) { load_throw_on_overflow(slice.native_value()); }
+    virtual void store(SliceMutable slice) const = 0;
+    SliceMutable make_slice(FieldSpec spec);
 };
 
 template <bool is_signed, size_t size>
@@ -33,16 +34,25 @@ struct Register : TypeErasedRegister
     size_t get_unsigned_size() const override final { return unsigned_size_v; }
     size_t get_numerical_first_idx() const override final { return numerical_first_idx; }
 
-    std::array<Byte, size> arr;
+    std::array<Byte, size> reg = {};
 
-    std::span<Byte> get_span() override final { return arr; }
+    Register() = default;
+    
+    Register(std::array<Byte, size> reg)
+        : reg(reg)
+    {}
+   
+    template <typename EnableIfT = std::enable_if<is_signed, RegisterWithoutSign<size - 1>>>
+    EnableIfT::type unsigned_register() const;
+
+    std::span<Byte> get_span() override final { return reg; }
 
     std::conditional_t<is_signed, Sign &, Sign> sign();
     Sign sign() const;
     NativeInt native_sign() const;
 
-    Int<is_signed, size> value();
-    Int<false, unsigned_size_v> unsigned_value();
+    IntMutable<is_signed, size> value();
+    IntMutable<false, unsigned_size_v> unsigned_value();
 
     IntView<is_signed, size> value() const;
     IntView<false, unsigned_size_v> unsigned_value() const;
@@ -62,9 +72,20 @@ struct Register : TypeErasedRegister
     bool load_no_throw_on_overflow(NativeInt value) override final { return load<false>(value); }
     void load_throw_on_overflow(NativeInt value) override final { load<true>(value); };
 
-    void load_zero(Sign sign) override final { arr[0].sign = sign; std::fill(arr.begin() + 1, arr.end(), 0); }
-    
-    void store(Slice slice) override final;
+    void load_zero(Sign sign) override final 
+    { 
+        if constexpr (is_signed)
+        {
+            reg[0].sign = sign; 
+            std::fill(reg.begin() + 1, reg.end(), Byte{.byte = 0});
+        }
+        else
+        {
+            std::fill(reg.begin(), reg.end(), Byte{.byte = 0});
+        }
+    }
+
+    void store(SliceMutable slice) const override final;
 
     void shift_left(NativeInt shift_by);
 
@@ -75,9 +96,25 @@ struct Register : TypeErasedRegister
     void shift_right_circular(NativeInt shift_by);
 };
 
-struct NumberRegister : public Register<true, 6>
+template <size_t size>
+struct RegisterWithoutSign 
 {
-    
+    std::span<Byte, size> reg;
+
+    RegisterWithoutSign(Register<true, size> register_storage)
+        : reg(register_storage.reg.begin(), register_storage.reg.end())
+    {}
+
+    IntMutable<false, size> unsigned_value();
+    IntView<false, size> unsigned_value() const;
+
+    NativeInt native_unsigned_value() const;
+
+    void store(Sign sign, SliceMutable slice) const;
+};
+
+struct NumberRegister : public Register<true, 6>
+{ 
 };
 
 struct IndexRegister : public Register<true, 3>

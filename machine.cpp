@@ -1,7 +1,7 @@
-#include "base.h"
-#include "instruction.h"
-#include "machine.decl.h"
-#include "register.decl.h"
+#include <base.h>
+#include <instruction.h>
+#include <machine.decl.h>
+#include <register.decl.h>
 #include <compare>
 #include <iostream>
 #include <machine.h>
@@ -88,15 +88,15 @@ void Machine::do_fdiv()
 void Machine::do_num()
 {
     NativeInt value = 0;
-    for (size_t i = 1; i < rA.arr.size(); i++)
+    for (size_t i = 1; i < rA.reg.size(); i++)
     {
-        NativeByte const character_value = rA.arr[i].byte % 10;
+        NativeByte const character_value = rA.reg[i].byte % 10;
         value = value * byte_size + character_value;
     }
 
-    for (size_t i = 1; i < rX.arr.size(); i++)
+    for (size_t i = 1; i < rX.reg.size(); i++)
     {
-        NativeByte const character_value = rX.arr[i].byte % 10;
+        NativeByte const character_value = rX.reg[i].byte % 10;
         value = value * byte_size + character_value;
     }
 
@@ -111,11 +111,11 @@ void Machine::do_num()
 void Machine::do_char()
 {
     NativeInt unsigned_value = rA.native_unsigned_value();
-    for (size_t i = rX.arr.size(); i --> 1; unsigned_value /= 10)
-        rX.arr[i].byte = 30 + unsigned_value % 10;
+    for (size_t i = rX.reg.size(); i --> 1; unsigned_value /= 10)
+        rX.reg[i].byte = 30 + unsigned_value % 10;
 
-    for (size_t i = rA.arr.size(); i --> 1; unsigned_value /= 10)
-        rA.arr[i].byte = 30 + unsigned_value % 10;
+    for (size_t i = rA.reg.size(); i --> 1; unsigned_value /= 10)
+        rA.reg[i].byte = 30 + unsigned_value % 10;
 
     if (unsigned_value > 0)
         std::cerr << "Warning: overflow in CHAR";
@@ -163,34 +163,53 @@ void Machine::do_src()
     rAX.shift_right_circular(inst.native_M());
 }
 
+#define REGISTER_DISPATCH_ITERATOR(TYPE, REG, IDX, FUNC, ...) \
+    else if (idx_##REG == IDX) \
+    { \
+        REG.FUNC(__VA_ARGS__); \
+    }
+
+#define REGISTER_STATIC_DISPATCH(IDX, FUNC, ...) \
+    do \
+    { \
+        if (false) ; \
+        REGISTER_LIST(REGISTER_DISPATCH_ITERATOR, IDX, FUNC, __VA_ARGS__) \
+    } while (false);
+
+#define REGISTER_DISPATCH(IDX, FUNC, ...) \
+    do \
+    { \
+        if constexpr(cxx_prefer_dynamic_dispatch) \
+            register_list[register_idx]->FUNC(__VA_ARGS__); \
+        else \
+            REGISTER_STATIC_DISPATCH(IDX, FUNC, __VA_ARGS__); \
+    } while (false);
+
 void Machine::do_ld(size_t register_idx)
 {
     Instruction const inst = current_instruction();
-    TypeErasedRegister &reg = *register_list[register_idx];
-    Slice const slice = inst.MF();
-    reg.load_throw_on_overflow(slice.native_value());
+    SliceView const slice = inst.MF();
+    REGISTER_DISPATCH(register_idx, load_throw_on_overflow, slice.native_value());
 }
 
 void Machine::do_ldn(size_t register_idx)
 {
     Instruction const inst = current_instruction();
-    TypeErasedRegister &reg = *register_list[register_idx];
-    Slice const slice = inst.MF();
-    reg.load_throw_on_overflow(-slice.native_value());
+    SliceView const slice = inst.MF();
+    REGISTER_DISPATCH(register_idx, load_throw_on_overflow, -slice.native_value());
 }
 
 void Machine::do_st(size_t register_idx)
 {
     Instruction const inst = current_instruction();
-    TypeErasedRegister &reg = *register_list[register_idx];
-    Slice const slice = inst.MF();
-    reg.store(slice);
+    SliceMutable const slice = inst.MF();
+    REGISTER_DISPATCH(register_idx, store, slice);
 }
 
 void Machine::do_stz()
 {
     Instruction const inst = current_instruction();
-    Slice const slice = inst.MF();
+    SliceMutable const slice = inst.MF();
     std::fill(slice.sp.begin(), slice.sp.end(), Byte{.byte = 0});
 }
 
@@ -243,8 +262,8 @@ void Machine::do_cmp(size_t register_idx)
 {
     Instruction const inst = current_instruction();
     TypeErasedRegister &reg = *register_list[register_idx];
-    Slice const mem_slice = inst.MF();
-    Slice const reg_slice = reg.make_slice(mem_slice.spec);
+    SliceView const mem_slice = inst.MF();
+    SliceView const reg_slice = reg.make_slice(mem_slice.spec);
     comparison = reg_slice.native_value() <=> mem_slice.native_value();
 }
 

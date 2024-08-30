@@ -50,10 +50,10 @@ FieldSpec Instruction::field_spec() const
     return { .L = field / 8, .R = field % 8 };
 }
 
-Slice Instruction::MF() const
+SliceMutable Instruction::MF() const
 {
     std::span<Byte, bytes_in_word> const value_at_address_M = M_value();
-    return Slice(value_at_address_M, field_spec());
+    return SliceMutable(value_at_address_M, field_spec());
 }
 
 NativeInt Instruction::native_MF() const

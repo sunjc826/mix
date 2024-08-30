@@ -33,6 +33,8 @@ constexpr size_t bytes_in_extended_word = 2 * numerical_bytes_in_word + 1;
 // The actual configured size of a MIX byte
 constexpr size_t byte_size = MIX_BYTE_SIZE;
 
+constexpr bool cxx_prefer_dynamic_dispatch = CXX_PREFER_DYNAMIC_DISPATCH;
+
 // The configured size of a MIX byte must be greater or equal to minimum_byte_size
 static_assert(byte_size >= minimum_byte_size);
 
@@ -68,7 +70,7 @@ static __attribute__((always_inline))
 constexpr NativeInt
 pow(NativeByte base);
 
-static __attribute__((always_inline))
+static inline __attribute__((always_inline))
 void check_address_bounds(NativeInt value);
 
 // prefer enum over enum class
@@ -99,6 +101,9 @@ union Byte
 struct Word
 {
     std::span<Byte, bytes_in_word> sp;
+    Word(std::span<Byte, bytes_in_word> sp)
+        : sp(sp)
+    {}
     void store(std::span<Byte, bytes_in_word> new_word);
 };
 
@@ -117,18 +122,28 @@ struct FieldSpec
     }
 };
 
-template <bool is_signed, size_t size = std::dynamic_extent>
+template <bool is_view, bool is_signed, size_t size = std::dynamic_extent>
 struct Int
 {
+    using PossiblyConstByte = ConstIfView_t<is_view, Byte>;
     static constexpr size_t num_begin = is_signed ? 1 : 0;
     // If there is a sign byte, then the total number of bytes must > 1,
     // since there must be at least 1 numerical byte.
     static_assert(!is_signed || size > 1);
-    std::span<Byte, size> sp;
+    std::span<PossiblyConstByte, size> sp;
+
+    Int(Int<false, is_signed, size> const &i)
+        : sp(i.sp)
+    {}
+
+    explicit Int(std::span<PossiblyConstByte> sp)
+        : sp(sp)
+    {}
     
     NativeInt native_sign() const;
 
-    std::conditional_t<is_signed, Sign &, Sign> sign();
+    template <typename EnableIfT = std::enable_if<!is_view, std::conditional_t<is_signed, Sign &, Sign>>>
+    EnableIfT::type sign();
 
     std::conditional_t<is_signed, Sign const &, Sign> sign() const;
 
@@ -136,29 +151,34 @@ struct Int
 };
 
 template <bool is_signed, size_t size = std::dynamic_extent>
-struct IntView
-{
-    static constexpr size_t num_begin = is_signed ? 1 : 0;
-    // If there is a sign byte, then the total number of bytes must > 1,
-    // since there must be at least 1 numerical byte.
-    static_assert(!is_signed || size > 1);
-    std::span<Byte const, size> sp;
-    IntView(Int<is_signed, size> v)
-        : sp(v.sp)
-    {}
+using IntMutable = Int<false, is_signed, size>;
 
-    NativeInt native_sign() const;
+template <bool is_signed, size_t size = std::dynamic_extent>
+using IntView = Int<true, is_signed, size>;
 
-    std::conditional_t<is_signed, Sign const &, Sign> sign() const;
-
-    NativeInt native_value() const;
-};
-
+template <bool is_view>
 struct Slice
 {
-    std::span<Byte> sp;
+    using PossiblyConstByte = ConstIfView_t<is_view, Byte>;
+    std::span<PossiblyConstByte> sp;
     FieldSpec spec;
-    Slice(std::span<Byte> sp, FieldSpec spec)
+
+    Slice(Slice<false> const &slice)
+        : sp(slice.sp), spec(slice.spec)
+    {}
+
+    template <size_t size>
+    explicit Slice(std::span<PossiblyConstByte, size> sp)
+        : sp(sp), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
+    {}
+
+    template <size_t size>
+    explicit Slice(std::span<PossiblyConstByte, size> sp, FieldSpec spec)
+        : sp(sp.subspan(spec.L, spec.length())), spec(spec)
+    {}
+
+    template <size_t size, typename EnableIfT = std::enable_if<is_view, Byte>>
+    explicit Slice(std::span<typename EnableIfT::type, size> sp, FieldSpec spec)
         : sp(sp.subspan(spec.L, spec.length())), spec(spec)
     {}
 
@@ -174,7 +194,7 @@ struct Slice
             return s_plus;
     }
 
-    size_t length()
+    size_t length() const
     {
         return spec.length();
     }
@@ -183,16 +203,20 @@ struct Slice
     {
         if (spec.L == 0)
         {
-            Int<true> mix_int{.sp = sp};
+            IntView<true> mix_int(sp);
             return mix_int.native_value();
         }
         else
         {
-            Int<false> mix_int{.sp = sp};
+            IntView<false> mix_int(sp);
             return mix_int.native_value();
         }
     }
 };
+
+using SliceMutable = Slice<false>;
+
+using SliceView = Slice<true>;
 
 template <size_t size>
 struct ByteConversionResult

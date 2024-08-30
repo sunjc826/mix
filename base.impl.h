@@ -33,13 +33,13 @@ pow(NativeByte base)
     return pow(base, exponent);
 }
 
-static __attribute__((always_inline))
 void check_address_bounds(NativeInt value)
 {
-    if (value < 0)
-        throw std::runtime_error("Negative address");
-    else if (value >= main_memory_size)
-        throw std::runtime_error("Overflowing address");
+    
+    // if (value < 0)
+        // throw std::runtime_error("Negative address");
+    // else if (value >= main_memory_size)
+    //     throw std::runtime_error("Overflowing address");
 }
 
 // Every negative MIX integral value must be representable by NativeInt
@@ -63,14 +63,15 @@ sign(NativeInt value)
     return value > 0 ? s_plus : s_minus;
 }
 
-template <bool is_signed, size_t size>
-NativeInt Int<is_signed, size>::native_sign() const
+template <bool is_view, bool is_signed, size_t size>
+NativeInt Int<is_view, is_signed, size>::native_sign() const
 {
     return ::native_sign(sign());
 }
 
-template <bool is_signed, size_t size>
-std::conditional_t<is_signed, Sign &, Sign> Int<is_signed, size>::sign()
+template <bool is_view, bool is_signed, size_t size>
+template <typename EnableIfT>
+EnableIfT::type Int<is_view, is_signed, size>::sign()
 {
     if constexpr(is_signed)
         return sp[0].sign;
@@ -78,41 +79,20 @@ std::conditional_t<is_signed, Sign &, Sign> Int<is_signed, size>::sign()
         return s_plus;
 }
 
-template <bool is_signed, size_t size>
-std::conditional_t<is_signed, Sign const &, Sign> Int<is_signed, size>::sign() const
+template <bool is_view, bool is_signed, size_t size>
+std::conditional_t<is_signed, Sign const &, Sign> Int<is_view, is_signed, size>::sign() const
 {
-    return REMOVE_CONST_FROM_PTR(this)->sign();
+    if constexpr(is_signed)
+        return sp[0].sign;
+    else
+        return s_plus;
 }
 
-template <bool is_signed, size_t size>
-NativeInt Int<is_signed, size>::native_value() const
+template <bool is_view, bool is_signed, size_t size>
+NativeInt Int<is_view, is_signed, size>::native_value() const
 {
     NativeInt accum = 0;
     for (size_t i = is_signed; i < sp.size(); i++)
-        accum += lut[i] * sp[i].byte;
-    return native_sign() * accum;
-}
-
-template <bool is_signed, size_t size>
-NativeInt IntView<is_signed, size>::native_sign() const
-{
-    return ::native_sign(sign());
-}
-
-template <bool is_signed, size_t size>
-std::conditional_t<is_signed, Sign const &, Sign> IntView<is_signed, size>::sign() const
-{
-    if constexpr(is_signed)
-        return sp[0].sign;
-    else
-        return s_plus;
-}
-
-template <bool is_signed, size_t size>
-NativeInt IntView<is_signed, size>::native_value() const
-{
-    NativeInt accum = 0;
-    for (size_t i = is_signed; i < size; i++)
         accum += lut[i] * sp[i].byte;
     return native_sign() * accum;
 }

@@ -187,12 +187,42 @@ class Machine
     // program counter
     NativeByte pc;
 
-    NumberRegister rA, rX;
-    IndexRegister rI1, rI2, rI3, rI4, rI5, rI6;
-    JumpRegister rJ;
+    
+    // NumberRegister rA, rX;
+    // IndexRegister rI1, rI2, rI3, rI4, rI5, rI6;
+    // JumpRegister rJ;
+    
+#define REGISTER_LIST(IT, ...) /* ... are additional args */ \
+    IT(NumberRegister, rA, __VA_ARGS__) \
+    IT(IndexRegister, rI1, __VA_ARGS__) \
+    IT(IndexRegister, rI2, __VA_ARGS__) \
+    IT(IndexRegister, rI3, __VA_ARGS__) \
+    IT(IndexRegister, rI4, __VA_ARGS__) \
+    IT(IndexRegister, rI5, __VA_ARGS__) \
+    IT(IndexRegister, rI6, __VA_ARGS__) \
+    IT(NumberRegister, rX, __VA_ARGS__) \
+    IT(JumpRegister, rJ, __VA_ARGS__)
+
+#define REGISTER_DECLARATION_ITERATOR(TYPE, REG, ...) TYPE REG;
+    REGISTER_LIST(REGISTER_DECLARATION_ITERATOR)
+#undef REGISTER_DECLARATION_ITERATOR
     ExtendedRegister rAX{rA, rX};
+
+
+    enum RegisterIdx
+    {
+
+#define REGISTER_ENUM_ITERATOR(TYPE, REG, ...) idx_##REG,
+        REGISTER_LIST(REGISTER_ENUM_ITERATOR)
+#undef REGISTER_ENUM_ITERATOR
+    };
+    
     std::array<TypeErasedRegister *, 9> register_list = 
-        { &rA, &rI1, &rI2, &rI3, &rI4, &rI5, &rI6, &rX, &rJ };
+    {
+#define REGISTER_ADDR_ITERATOR(TYPE, REG, ...) &REG, 
+        REGISTER_LIST(REGISTER_ADDR_ITERATOR)
+#undef REGISTER_ADDR_ITERATOR 
+    };
 
     bool halted;
 
@@ -236,7 +266,7 @@ class Machine
     void do_srax();
     void do_slc();
     void do_src();
-    void do_move();    
+    void do_move();
     void do_ld(size_t register_idx);
     void do_ldn(size_t register_idx);
     void do_st(size_t register_idx);

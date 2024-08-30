@@ -9,7 +9,7 @@ void Op::operator()(Machine &m) const
 __attribute__((always_inline)) inline
 Instruction Machine::current_instruction()
 {
-    return Instruction{Word{.sp = std::span<Byte, 6>( memory.begin() + pc, 6 )}, .m = *this};
+    return Instruction(std::span<Byte, 6>( memory.begin() + pc, 6 ), *this);
 }
 
 __attribute__((always_inline)) inline

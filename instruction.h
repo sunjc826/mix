@@ -5,6 +5,9 @@
 struct Instruction : public Word
 {
     Machine &m;
+    Instruction(std::span<Byte, bytes_in_word> sp, Machine &m)
+        : Word(sp), m(m)
+    {}
     
     Sign &sign() const
     {
@@ -30,7 +33,7 @@ struct Instruction : public Word
     }
 
     // Returns M(F)
-    Slice MF() const;
+    SliceMutable MF() const;
 
     NativeByte &C() const
     {
