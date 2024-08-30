@@ -2,6 +2,31 @@
 #include <register.decl.h>
 #include <register.h>
 
+Sign ZeroRegister::sign() const
+{
+    return s_plus;
+}
+
+NativeInt ZeroRegister::native_sign() const
+{
+    return ::native_sign(sign());
+}
+
+NativeInt ZeroRegister::native_value() const
+{
+    return 0;
+}
+
+NativeInt ZeroRegister::native_unsigned_value() const
+{
+    return 0;
+}
+
+void ZeroRegister::store(SliceMutable slice) const
+{
+    std::fill(slice.sp.begin(), slice.sp.end(), Byte{.byte = 0});
+}
+
 void ExtendedRegister::load(NativeInt value)
 {
     ByteConversionResult<bytes_in_extended_word> const result = as_bytes<bytes_in_extended_word>(value);

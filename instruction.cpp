@@ -2,17 +2,21 @@
 #include <register.h>
 #include <machine.h>
 
-void Word::store(std::span<Byte, bytes_in_word> new_word)
+Instruction::Instruction(Machine &m)
+    : Word(std::span<Byte, bytes_in_word>(m.memory.begin() + m.pc, bytes_in_word)), m(m)
+{}
+
+void Instruction::update_by_pc()
 {
-    std::copy(new_word.begin(), new_word.end(), sp.begin());
+    std::copy_n(m.memory.begin() + m.pc, bytes_in_word, arr.begin());
 }
 
 NativeInt Instruction::native_A() const
 {
     auto const [s, b1, b2] = A();
     NativeInt accumulator = 0;
-    accumulator = accumulator * MIX_BYTE_SIZE + b1;
-    accumulator = accumulator * MIX_BYTE_SIZE + b2;
+    accumulator = accumulator * byte_size + b1;
+    accumulator = accumulator * byte_size + b2;
     accumulator = accumulator * s;
     return accumulator;
 }

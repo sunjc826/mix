@@ -14,7 +14,6 @@ void Machine::do_nop()
 
 void Machine::do_add()
 {
-    Instruction const inst = current_instruction();
     if (rA.load(rA.native_value() + inst.native_MF()))
         overflow = true;
     increment_pc();
@@ -28,7 +27,6 @@ void Machine::do_fadd()
 
 void Machine::do_sub()
 {
-    Instruction const inst = current_instruction();
     if (rA.load(rA.native_value() - inst.native_MF()))
         overflow = true;
     increment_pc();
@@ -42,7 +40,6 @@ void Machine::do_fsub()
 
 void Machine::do_mul()
 {
-    Instruction const inst = current_instruction();
     NativeInt const mul_result = rA.native_value() * inst.native_MF();
     rAX.load(mul_result);
     increment_pc();
@@ -56,8 +53,6 @@ void Machine::do_fmul()
 
 void Machine::do_div()
 {
-    Instruction const inst = current_instruction();
-
     NativeInt const dividend = rAX.native_value();
     Sign const dividend_sign = rAX.sign();
     
@@ -129,218 +124,165 @@ void Machine::do_hlt()
 
 void Machine::do_sla()
 {
-    Instruction const inst = current_instruction();
     rA.shift_left(inst.native_M());
 }
 
 void Machine::do_sra()
 {
-    Instruction const inst = current_instruction();
     rA.shift_right(inst.native_M());
 }
 
 void Machine::do_slax()
 {
-    Instruction const inst = current_instruction();
     rAX.shift_left(inst.native_M());
 }
 
 void Machine::do_srax()
 {
-    Instruction const inst = current_instruction();
     rAX.shift_right(inst.native_M());
 }
 
 void Machine::do_slc()
 {
-    Instruction const inst = current_instruction();
     rAX.shift_left_circular(inst.native_M());
 }
 
 void Machine::do_src()
 {
-    Instruction const inst = current_instruction();
     rAX.shift_right_circular(inst.native_M());
 }
 
-#define REGISTER_DISPATCH_ITERATOR(TYPE, REG, IDX, FUNC, ...) \
-    else if (idx_##REG == IDX) \
-    { \
-        REG.FUNC(__VA_ARGS__); \
-    }
-
-#define REGISTER_STATIC_DISPATCH(IDX, FUNC, ...) \
-    do \
-    { \
-        if (false) ; \
-        REGISTER_LIST(REGISTER_DISPATCH_ITERATOR, IDX, FUNC, __VA_ARGS__) \
-    } while (false);
-
-#define REGISTER_DISPATCH(IDX, FUNC, ...) \
-    do \
-    { \
-        if constexpr(cxx_prefer_dynamic_dispatch) \
-            register_list[register_idx]->FUNC(__VA_ARGS__); \
-        else \
-            REGISTER_STATIC_DISPATCH(IDX, FUNC, __VA_ARGS__); \
-    } while (false);
-
-void Machine::do_ld(size_t register_idx)
+template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
+void Machine::do_ld()
 {
-    Instruction const inst = current_instruction();
     SliceView const slice = inst.MF();
-    REGISTER_DISPATCH(register_idx, load_throw_on_overflow, slice.native_value());
+    RegisterT &reg = this->*reg_member_ptr;
+    reg.load_throw_on_overflow(slice.native_value());
 }
 
-void Machine::do_ldn(size_t register_idx)
+template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
+void Machine::do_ldn()
 {
-    Instruction const inst = current_instruction();
     SliceView const slice = inst.MF();
-    REGISTER_DISPATCH(register_idx, load_throw_on_overflow, -slice.native_value());
+    RegisterT &reg = this->*reg_member_ptr;
+    reg.load_throw_on_overflow(-slice.native_value());
 }
 
-void Machine::do_st(size_t register_idx)
+template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
+void Machine::do_st()
 {
-    Instruction const inst = current_instruction();
     SliceMutable const slice = inst.MF();
-    REGISTER_DISPATCH(register_idx, store, slice);
+    RegisterT &reg = this->*reg_member_ptr;
+    reg.store(slice);
 }
 
-void Machine::do_stz()
-{
-    Instruction const inst = current_instruction();
-    SliceMutable const slice = inst.MF();
-    std::fill(slice.sp.begin(), slice.sp.end(), Byte{.byte = 0});
-}
-
-void Machine::do_j(size_t register_idx)
+template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
+void Machine::do_j()
 {
     
 }
 
-void Machine::do_inc(size_t register_idx)
+template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
+void Machine::do_inc()
 {
-    Instruction const inst = current_instruction();
-    TypeErasedRegister &reg = *register_list[register_idx];
     NativeInt const reg_addend = inst.native_M();
+    RegisterT &reg = this->*reg_member_ptr;
     if (reg.increment(reg_addend))
         overflow = true;
 }
 
-void Machine::do_dec(size_t register_idx)
+template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
+void Machine::do_dec()
 {
-    Instruction const inst = current_instruction();
-    TypeErasedRegister &reg = *register_list[register_idx];
     NativeInt const reg_addend = -inst.native_M();
+    RegisterT &reg = this->*reg_member_ptr;
     if (reg.increment(reg_addend))
         overflow = true;
 }
 
-void Machine::do_ent(size_t register_idx)
+template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
+void Machine::do_ent()
 {
-    Instruction const inst = current_instruction();
-    TypeErasedRegister &reg = *register_list[register_idx];
     NativeInt const new_reg_value = inst.native_M();
+    RegisterT &reg = this->*reg_member_ptr;
     if (new_reg_value == 0)
         reg.load_zero(inst.sign());
     else
         reg.load_throw_on_overflow(new_reg_value);
 }
 
-void Machine::do_enn(size_t register_idx)
+template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
+void Machine::do_enn()
 {
-    Instruction const inst = current_instruction();
-    TypeErasedRegister &reg = *register_list[register_idx];
     NativeInt const M = inst.native_M();
+    RegisterT &reg = this->*reg_member_ptr;
     if (M == 0)
         reg.load_zero(-inst.sign());
     else
         reg.load_throw_on_overflow(-M);
 }
 
-void Machine::do_cmp(size_t register_idx)
+template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
+void Machine::do_cmp()
 {
-    Instruction const inst = current_instruction();
-    TypeErasedRegister &reg = *register_list[register_idx];
     SliceView const mem_slice = inst.MF();
+    RegisterT &reg = this->*reg_member_ptr;
     SliceView const reg_slice = reg.make_slice(mem_slice.spec);
     comparison = reg_slice.native_value() <=> mem_slice.native_value();
 }
 
-Op Machine::current_op()
+template <NativeByte test_op_code>
+void Machine::jump_table()
 {
-    Instruction inst = current_instruction();
-    switch (inst.C())
-    {
-    case 0:
-    case 1:
-    case 2:
-    case 3:
-    case 4:
-    case 5:
-    case 6:
-    case 7:
-    case 8:
-    case 9:
-    case 10:
-    case 11:
-    case 12:
-    case 13:
-    case 14:
-    case 15:
-    case 16:
-    case 17:
-    case 18:
-    case 19:
-    case 20:
-    case 21:
-    case 22:
-    case 23:
-    case 24:
-    case 25:
-    case 26:
-    case 27:
-    case 28:
-    case 29:
-    case 30:
-    case 31:
-    case 32:
-    case 33:
-    case 34:
-    case 35:
-    case 36:
-    case 37:
-    case 38:
-    case 39:
-    case 40:
-    case 41:
-    case 42:
-    case 43:
-    case 44:
-    case 45:
-    case 46:
-    case 47:
-    case 48:
-    case 49:
-    case 50:
-    case 51:
-    case 52:
-    case 53:
-    case 54:
-    case 55:
-    case 56:
-    case 57:
-    case 58:
-    case 59:
-    case 60:
-    case 61:
-    case 62:
-    case 63:
+    if (inst.C() == test_op_code)
+        dispatch_by_op_code<test_op_code>();
+    else if constexpr (test_op_code + 1 < op_max)
+        jump_table<test_op_code + 1>();
+}
+
+template <NativeByte op_code>
+void Machine::dispatch_by_op_code()
+{
+#define OP_LIST_DISPATCH_ITERATOR(OP_NAME, OP_CODE, FUNC) \
+    if constexpr(op_code == OP_CODE) \
+    { \
+        FUNC(); \
+        return; \
     }
+
+#define OP_LIST_FIELD_DISPATCH_ITERATOR(OP_NAME, OP_CODE, OP_FIELD, FUNC) \
+    if constexpr(op_code == OP_CODE) \
+    { \
+        if (inst.F() == OP_FIELD)\
+        { \
+            FUNC(); \
+            return; \
+        } \
+    }
+
+#define OP_LIST_REGISTER_DISPATCH_ITERATOR(OP_NAME, OP_CODE, FUNC, REGISTER) \
+    if constexpr(op_code == OP_CODE) \
+    { \
+        FUNC<decltype(std::declval<Machine>().REGISTER), &Machine::REGISTER>(); \
+        return; \
+    }
+
+#define OP_LIST_FIELD_REGISTER_DISPATCH_ITERATOR(OP_NAME, OP_CODE, OP_FIELD, FUNC, REGISTER) \
+    if constexpr(op_code == OP_CODE) \
+    { \
+        if (inst.F() == OP_FIELD) \
+        { \
+            FUNC<decltype(std::declval<Machine>().REGISTER), &Machine::REGISTER>(); \
+            return; \
+        } \
+    }
+
+    OP_LIST(OP_LIST_DISPATCH_ITERATOR, OP_LIST_FIELD_DISPATCH_ITERATOR, OP_LIST_REGISTER_DISPATCH_ITERATOR, OP_LIST_FIELD_REGISTER_DISPATCH_ITERATOR)
+
+#undef OP_LIST_DISPATCH_ITERATOR
 }
 
 void Machine::step()
 {
-    Op const op = current_op();
-    op(*this);
+    jump_table();
 }

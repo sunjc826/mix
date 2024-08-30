@@ -2,42 +2,43 @@
 #include <base.h>
 #include <instruction.decl.h>
 #include <machine.decl.h>
+
 struct Instruction : public Word
 {
     Machine &m;
-    Instruction(std::span<Byte, bytes_in_word> sp, Machine &m)
-        : Word(sp), m(m)
-    {}
-    
-    Sign &sign() const
+    Instruction(Machine &m);
+
+    void update_by_pc();
+
+    Sign sign() const
     {
-        return sp[0].sign;
+        return arr[0].sign;
     }
 
-    std::tuple<Sign &, NativeByte &, NativeByte &> A() const
+    std::tuple<Sign, NativeByte, NativeByte> A() const
     {
-        return { sp[0].sign, sp[1].byte, sp[2].byte };
+        return { arr[0].sign, arr[1].byte, arr[2].byte };
     }
 
-    NativeByte &I() const
+    NativeByte I() const
     {
-        return sp[3].byte;
+        return arr[3].byte;
     }
 
     // Returns *M, where * represents dereferencing
     std::span<Byte, bytes_in_word> M_value() const;
 
-    NativeByte &F() const
+    NativeByte F() const
     {
-        return sp[4].byte;
+        return arr[4].byte;
     }
 
     // Returns M(F)
     SliceMutable MF() const;
 
-    NativeByte &C() const
+    NativeByte C() const
     {
-        return sp[5].byte;
+        return arr[5].byte;
     }
 
     // Extracts and returns L and R from F()

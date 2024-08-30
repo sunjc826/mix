@@ -21,6 +21,15 @@ struct TypeErasedRegister
     SliceMutable make_slice(FieldSpec spec);
 };
 
+struct ZeroRegister final
+{
+    Sign sign() const;
+    NativeInt native_sign() const;
+    NativeInt native_value() const;
+    NativeInt native_unsigned_value() const;
+    void store(SliceMutable slice) const;
+};
+
 template <bool is_signed, size_t size>
 struct Register : TypeErasedRegister
 {
@@ -97,7 +106,7 @@ struct Register : TypeErasedRegister
 };
 
 template <size_t size>
-struct RegisterWithoutSign 
+struct RegisterWithoutSign final
 {
     std::span<Byte, size> reg;
 
@@ -113,11 +122,11 @@ struct RegisterWithoutSign
     void store(Sign sign, SliceMutable slice) const;
 };
 
-struct NumberRegister : public Register<true, 6>
+struct NumberRegister final : public Register<true, 6>
 { 
 };
 
-struct IndexRegister : public Register<true, 3>
+struct IndexRegister final : public Register<true, 3>
 {
     bool increment(NativeInt addend) override final
     {
@@ -126,11 +135,11 @@ struct IndexRegister : public Register<true, 3>
     }
 };
 
-struct JumpRegister : public Register<false, 2>
+struct JumpRegister final : public Register<false, 2>
 {
 };
 
-struct ExtendedRegister
+struct ExtendedRegister final
 {
     NumberRegister &rA, &rX;
 

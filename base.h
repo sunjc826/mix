@@ -1,9 +1,9 @@
 #pragma once
+#include <config.h>
 #include <utilities.h>
 
 #include <algorithm>
 #include <cmath>
-#include <config.h>
 #include <functional>
 #include <optional>
 #include <stdexcept>
@@ -16,7 +16,8 @@
 #include <type_traits>
 #include <tuple>
 
-constexpr size_t main_memory_size = 4000 /* MIX words */;
+// The size of main memory of a MIX machine in terms of the number of MIX words
+constexpr size_t main_memory_size = 4000;
 
 // A native byte always represents 256 values
 constexpr size_t native_byte_size = 256;
@@ -26,14 +27,11 @@ constexpr size_t minimum_byte_size = 64;
 
 // A MIX word comprises 1 sign and 5 numerical bytes
 constexpr size_t bytes_in_word = 6;
+
 constexpr size_t numerical_bytes_in_word = bytes_in_word - 1;
+
 // extended word is stored by rAX
 constexpr size_t bytes_in_extended_word = 2 * numerical_bytes_in_word + 1;
-
-// The actual configured size of a MIX byte
-constexpr size_t byte_size = MIX_BYTE_SIZE;
-
-constexpr bool cxx_prefer_dynamic_dispatch = CXX_PREFER_DYNAMIC_DISPATCH;
 
 // The configured size of a MIX byte must be greater or equal to minimum_byte_size
 static_assert(byte_size >= minimum_byte_size);
@@ -59,7 +57,6 @@ using NativeInt = long long;
 static __attribute__((always_inline))
 constexpr std::array<NativeInt, 2 * numerical_bytes_in_word + 1> 
 pow_lookup_table(NativeByte base);
-
 
 static __attribute__((always_inline))
 constexpr NativeInt
@@ -100,11 +97,14 @@ union Byte
 
 struct Word
 {
-    std::span<Byte, bytes_in_word> sp;
+    std::array<Byte, bytes_in_word> arr;
     Word(std::span<Byte, bytes_in_word> sp)
-        : sp(sp)
+        : arr([sp]{
+            std::array<Byte, bytes_in_word> arr;
+            std::copy(sp.begin(), sp.end(), arr.begin());
+            return arr;
+        }())
     {}
-    void store(std::span<Byte, bytes_in_word> new_word);
 };
 
 struct FieldSpec
@@ -180,10 +180,6 @@ struct Slice
     template <size_t size, typename EnableIfT = std::enable_if<is_view, Byte>>
     explicit Slice(std::span<typename EnableIfT::type, size> sp, FieldSpec spec)
         : sp(sp.subspan(spec.L, spec.length())), spec(spec)
-    {}
-
-    Slice(Word word, FieldSpec spec)
-        : sp(word.sp.subspan(spec.L, spec.length())), spec(spec)
     {}
 
     Sign sign() const

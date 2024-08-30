@@ -1,15 +1,10 @@
 #pragma once
 #include <machine.h>
-__attribute__((always_inline)) inline 
-void Op::operator()(Machine &m) const
-{
-    (m.*do_op)();
-}
 
 __attribute__((always_inline)) inline
-Instruction Machine::current_instruction()
+void Machine::update_current_instruction()
 {
-    return Instruction(std::span<Byte, 6>( memory.begin() + pc, 6 ), *this);
+    inst.update_by_pc();
 }
 
 __attribute__((always_inline)) inline

@@ -26,7 +26,7 @@ SHARED_LIB_TARGETS :=
 STATIC_LIB_TARGETS := 
 # Use object lib if we just want to make a bunch of relocatable objects (.o) without any further linking/archiving.
 # It is a simple way of categorising a bunch of object files we want to build. Useful for development purposes.
-OBJECT_LIB_TARGETS := simulator
+OBJECT_LIB_TARGETS := simulator assembler
 PSEUDO_TARGETS := linenoise
 
 # In CMake terminology,
@@ -39,7 +39,9 @@ PSEUDO_TARGETS := linenoise
 
 simulator_SOURCES := instruction.cpp register.cpp machine.cpp
 
-simulator_DEPS := linenoise
+assembler_SOURCES := assembler.cpp
+
+# simulator_DEPS := linenoise
 
 linenoise_DIR := external/linenoise/
 
@@ -51,10 +53,10 @@ linenoise_INTERFACE_SOURCES := $(linenoise_DIR)/linenoise.c
 uniq = $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),$1)))
 
 .PHONY: all
-all: $(EXECUTABLE_TARGETS) $(STATIC_LIB_TARGETS) $(SHARED_LIB_TARGETS) $(OBJECT_LIB_TARGETS) $(PSEUDO_TARGETS);
+all: $(EXECUTABLE_TARGETS) $(STATIC_LIB_TARGETS) $(SHARED_LIB_TARGETS) $(OBJECT_LIB_TARGETS);
 
 .PHONY: clean
-clean: $(foreach TARGET,$(EXECUTABLE_TARGETS) $(STATIC_LIB_TARGETS) $(SHARED_LIB_TARGETS) $(OBJECT_LIB_TARGETS) $(PSEUDO_TARGETS),clean_$(TARGET));
+clean: $(foreach TARGET,$(EXECUTABLE_TARGETS) $(STATIC_LIB_TARGETS) $(SHARED_LIB_TARGETS) $(OBJECT_LIB_TARGETS),clean_$(TARGET));
 
 define make_target_variables_prologue
 $(TARGET)_SOURCES_ORIG := $($(TARGET)_SOURCES)
