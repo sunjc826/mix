@@ -8,7 +8,7 @@ Instruction::Instruction(Machine &m)
 
 void Instruction::update_by_pc()
 {
-    std::copy_n(m.memory.begin() + m.pc, bytes_in_word, arr.begin());
+    std::copy_n(m.memory.begin() + m.pc, bytes_in_word, container.begin());
 }
 
 NativeInt Instruction::native_A() const

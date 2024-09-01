@@ -9,12 +9,15 @@
 #include <stdexcept>
 
 #include <cstddef>
+#include <cstring>
 #include <limits>
 #include <string>
 #include <string_view>
 #include <span>
 #include <type_traits>
 #include <tuple>
+
+using namespace std::string_view_literals;
 
 // The size of main memory of a MIX machine in terms of the number of MIX words
 constexpr size_t main_memory_size = 4000;
@@ -95,16 +98,98 @@ union Byte
     Sign sign;
 };
 
-struct Word
+enum class OwnershipKind
 {
-    std::array<Byte, bytes_in_word> arr;
-    Word(std::span<Byte, bytes_in_word> sp)
-        : arr([sp]{
-            std::array<Byte, bytes_in_word> arr;
-            std::copy(sp.begin(), sp.end(), arr.begin());
-            return arr;
-        }())
+    owns,
+    mutable_view,
+    view,
+};
+
+template <OwnershipKind kind, typename T = Byte, size_t size = kind == OwnershipKind::owns ? bytes_in_word : std::dynamic_extent>
+struct OwnershipKindContainer;
+
+template <typename T, size_t size>
+struct OwnershipKindContainer<OwnershipKind::owns, T, size>
+{
+    using element_type = T;
+    using type = std::array<element_type, size>;
+    static constexpr bool is_view = false;
+    static type constructor(std::span<element_type, size> sp)
+    {
+        std::array<Byte, bytes_in_word> arr;
+        std::copy(sp.begin(), sp.end(), arr.begin());
+        return arr;
+    }
+};
+
+template <typename T, size_t size>
+struct OwnershipKindContainer<OwnershipKind::mutable_view, T, size>
+{
+    using element_type = T;
+    using type = std::span<element_type, size>;
+    static constexpr bool is_view = false;
+    __attribute__((always_inline))
+    static type constructor(std::span<element_type, size> sp)
+    {
+        return sp;
+    }
+};
+
+template <typename T, size_t size>
+struct OwnershipKindContainer<OwnershipKind::view, T, size>
+{
+    using element_type = T const;
+    using type = std::span<element_type, size>;
+    static constexpr bool is_view = true;
+    __attribute__((always_inline))
+    static type constructor(std::span<element_type, size> sp)
+    {
+        return sp;
+    }
+};
+
+template <OwnershipKind kind, bool is_signed, size_t size>
+struct IntegralContainer
+{
+    using Container = OwnershipKindContainer<kind, Byte, bytes_in_word>;
+    typename Container::type container;
+    // If there is a sign byte, then the total number of bytes must > 1,
+    // since there must be at least 1 numerical byte.
+    static constexpr size_t num_begin = is_signed ? 1 : 0;
+    static_assert(!is_signed || size > 1);
+
+    IntegralContainer(std::span<typename Container::element_type, size> sp)
+        : container(Container::constructor(sp))
     {}
+
+    IntegralContainer(std::array<typename Container::element_type, size> arr)
+        : container(Container::constructor(std::span<typename Container::element_type, size>(arr.begin(), arr.size())))
+    {}
+
+    template <typename EnableIfT = std::enable_if<kind == OwnershipKind::view || kind == OwnershipKind::mutable_view>>
+    IntegralContainer(IntegralContainer<OwnershipKind::owns, is_signed, size> &w, EnableIfT::type * = 0)
+        : container(Container::constructor(w.container))
+    {}
+
+    template <typename EnableIfT = std::enable_if<kind == OwnershipKind::view>>
+    IntegralContainer(IntegralContainer<OwnershipKind::mutable_view, is_signed, size> const &w, EnableIfT::type * = 0)
+        : container(Container::constructor(w.container))
+    {}
+
+    NativeInt native_sign() const;
+
+    template <typename EnableIfT = std::enable_if<!Container::is_view, std::conditional_t<is_signed, Sign &, Sign>>>
+    EnableIfT::type sign();
+
+    std::conditional_t<is_signed, Sign const &, Sign> sign() const;
+
+    NativeInt native_value() const;
+};
+
+template <OwnershipKind kind>
+struct Word : IntegralContainer<kind, true, bytes_in_word>
+{
+    using Container = OwnershipKindContainer<kind, Byte, bytes_in_word>;    
 };
 
 struct FieldSpec
@@ -122,39 +207,11 @@ struct FieldSpec
     }
 };
 
-template <bool is_view, bool is_signed, size_t size = std::dynamic_extent>
-struct Int
-{
-    using PossiblyConstByte = ConstIfView_t<is_view, Byte>;
-    static constexpr size_t num_begin = is_signed ? 1 : 0;
-    // If there is a sign byte, then the total number of bytes must > 1,
-    // since there must be at least 1 numerical byte.
-    static_assert(!is_signed || size > 1);
-    std::span<PossiblyConstByte, size> sp;
-
-    Int(Int<false, is_signed, size> const &i)
-        : sp(i.sp)
-    {}
-
-    explicit Int(std::span<PossiblyConstByte> sp)
-        : sp(sp)
-    {}
-    
-    NativeInt native_sign() const;
-
-    template <typename EnableIfT = std::enable_if<!is_view, std::conditional_t<is_signed, Sign &, Sign>>>
-    EnableIfT::type sign();
-
-    std::conditional_t<is_signed, Sign const &, Sign> sign() const;
-
-    NativeInt native_value() const;
-};
+template <bool is_signed, size_t size = std::dynamic_extent>
+using IntMutable = IntegralContainer<OwnershipKind::mutable_view, is_signed, size>;
 
 template <bool is_signed, size_t size = std::dynamic_extent>
-using IntMutable = Int<false, is_signed, size>;
-
-template <bool is_signed, size_t size = std::dynamic_extent>
-using IntView = Int<true, is_signed, size>;
+using IntView = IntegralContainer<OwnershipKind::view, is_signed, size>;
 
 template <bool is_view>
 struct Slice

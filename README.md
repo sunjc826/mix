@@ -19,6 +19,11 @@ Type name<Type parameter or Value parameter or Type parameters... or Value param
         NamespacedTypeName<...> 
 ```
 `*` is a wildcard.
+Each Type argument can be given a unique label `Type argument(Label)` which is equivalent to
+```yaml
+Label:
+    type: Type argument
+```
 The format of a MIX binary has type `Binary`.
 
 Basic types:
@@ -31,8 +36,19 @@ Byte:
 Word:
     type: Tuple<Repeat<Byte, 6>...>
     description: A MIX word consists of 6 MIX bytes.
+Integer:
+    type: Word
+    description: A MIX signed integer.
+UnsignedInteger:
+    type: Word
+    description: A MIX unsigned integer, sign is always +.
+Instruction:
+    type: Word
+    description: A MIX instruction.
 Array<type Element>:
-    description: A vector of types
+    description: |
+    An "inplace" vector of types. This means that an Array<Byte> is not a pointer to a Byte buffer, but is the Byte buffer itself.
+    Additionally, an array is not guaranteed to be random accessible. It depends on whether Element's size is known statically.
 Ptr<typename Element>:
     type: UnsignedInteger
     description: |
@@ -44,19 +60,14 @@ Tuple<type Elements...>:
     description: Use ... to unpack types like C++.
 Repeat<type Element, value N>:
     type: Tuple<Element, Element, ..., Element> (N times)
-Table<type Elements...>:
-    description: The ABI for a TABLE should be similar to an ELF header.
+Table<type Records...>:
+    type: Array<Tuple<Records...>>
+    description: The ABI for a Table should be similar to an ELF header/section header/program header.
 StringPool:
     type: Array<Byte>
     description: The ABI is similar to an ELF string table.
 Union<type Variants...>:
 Enum<value Values...>:
-Integer:
-    type: Word
-    description: A MIX signed integer
-UnsignedInteger:
-    type: Word
-    description: A MIX unsigned integer, sign is always +
 ```
 
 ```yaml
@@ -66,13 +77,22 @@ BinaryMagic:
     type: Array<Byte>
     value: "MIX_MAGIC"
 Header:
-    type: Table<HeaderRecordType, Word>
+    type: Table<HeaderRecordType, HeaderRecordValue>
 HeaderRecordType:
     type: Enum<HeaderRecordType::*>
+    description: Does not occur more than once in a Header
     namespace:
         program_header_size:
+            implies_type:
+                HeaderRecordValue: UnsignedInteger
         program_header_offset:
-            description: offset is with respect to the start of the binary
+            implies_type: 
+                HeaderRecordValue: Ptr<ProgramHeader>
+        entry_point:
+            implies_type:
+                HeaderRecordValue: Ptr<Instruction>
+HeaderRecordValue:
+    type: Word
 ProgramHeader:
     type: |
         Table<
@@ -84,11 +104,15 @@ ProgramHeaderRecordType:
     type: Enum<ProgramHeaderType::*>
     namespace:
         load:
-            description: Similar to an ELF PH_LOAD segment
+            implies_type:
+                ProgramHeaderRecordOffset: Ptr<ProgramImageSegment>
+            description: Similar to an ELF PT_LOAD segment
 ProgramHeaderRecordOffset:
     type: UnsignedInteger
 ProgramHeaderRecordSize:
     type: UnsignedInteger
+ProgramImage:
+    type: Array<ProgramImageSegment>
+ProgramImageSegment:
+    type: Array<Byte>
 ```
-
-

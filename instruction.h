@@ -3,7 +3,7 @@
 #include <instruction.decl.h>
 #include <machine.decl.h>
 
-struct Instruction : public Word
+struct Instruction : public Word<OwnershipKind::owns>
 {
     Machine &m;
     Instruction(Machine &m);
@@ -12,17 +12,17 @@ struct Instruction : public Word
 
     Sign sign() const
     {
-        return arr[0].sign;
+        return container[0].sign;
     }
 
     std::tuple<Sign, NativeByte, NativeByte> A() const
     {
-        return { arr[0].sign, arr[1].byte, arr[2].byte };
+        return { container[0].sign, container[1].byte, container[2].byte };
     }
 
     NativeByte I() const
     {
-        return arr[3].byte;
+        return container[3].byte;
     }
 
     // Returns *M, where * represents dereferencing
@@ -30,7 +30,7 @@ struct Instruction : public Word
 
     NativeByte F() const
     {
-        return arr[4].byte;
+        return container[4].byte;
     }
 
     // Returns M(F)
@@ -38,7 +38,7 @@ struct Instruction : public Word
 
     NativeByte C() const
     {
-        return arr[5].byte;
+        return container[5].byte;
     }
 
     // Extracts and returns L and R from F()

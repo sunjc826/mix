@@ -63,37 +63,37 @@ sign(NativeInt value)
     return value > 0 ? s_plus : s_minus;
 }
 
-template <bool is_view, bool is_signed, size_t size>
-NativeInt Int<is_view, is_signed, size>::native_sign() const
+template <OwnershipKind kind, bool is_signed, size_t size>
+NativeInt IntegralContainer<kind, is_signed, size>::native_sign() const
 {
     return ::native_sign(sign());
 }
 
-template <bool is_view, bool is_signed, size_t size>
+template <OwnershipKind kind, bool is_signed, size_t size>
 template <typename EnableIfT>
-EnableIfT::type Int<is_view, is_signed, size>::sign()
+EnableIfT::type IntegralContainer<kind, is_signed, size>::sign()
 {
     if constexpr(is_signed)
-        return sp[0].sign;
+        return container[0].sign;
     else
         return s_plus;
 }
 
-template <bool is_view, bool is_signed, size_t size>
-std::conditional_t<is_signed, Sign const &, Sign> Int<is_view, is_signed, size>::sign() const
+template <OwnershipKind kind, bool is_signed, size_t size>
+std::conditional_t<is_signed, Sign const &, Sign> IntegralContainer<kind, is_signed, size>::sign() const
 {
     if constexpr(is_signed)
-        return sp[0].sign;
+        return container[0].sign;
     else
         return s_plus;
 }
 
-template <bool is_view, bool is_signed, size_t size>
-NativeInt Int<is_view, is_signed, size>::native_value() const
+template <OwnershipKind kind, bool is_signed, size_t size>
+NativeInt IntegralContainer<kind, is_signed, size>::native_value() const
 {
     NativeInt accum = 0;
-    for (size_t i = is_signed; i < sp.size(); i++)
-        accum += lut[i] * sp[i].byte;
+    for (size_t i = is_signed; i < container.size(); i++)
+        accum += lut[i] * container[i].byte;
     return native_sign() * accum;
 }
 
