@@ -1,5 +1,6 @@
 #pragma once
-#include <register.h>
+#include <register.defn.h>
+
 #include <stdexcept>
 
 template <size_t size>

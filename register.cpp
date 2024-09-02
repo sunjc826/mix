@@ -1,5 +1,3 @@
-#include "base.h"
-#include <register.decl.h>
 #include <register.h>
 
 Sign ZeroRegister::sign() const

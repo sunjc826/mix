@@ -1,5 +1,5 @@
 #pragma once
-#include <machine.h>
+#include <machine.defn.h>
 
 __attribute__((always_inline)) inline
 void Machine::update_current_instruction()
