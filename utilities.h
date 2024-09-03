@@ -80,6 +80,16 @@ public:
     {
         return REMOVE_CONST_FROM_PTR(this)->error();
     }
+
+    operator Value &()
+    {
+        return value();
+    }
+
+    operator Value const &() const
+    {
+        return value();
+    }
 };
 
 template <typename Error>
@@ -165,6 +175,16 @@ public:
     Value const &value() const
     {
         return REMOVE_CONST_FROM_PTR(this)->value();
+    }
+
+    operator Value &()
+    {
+        return value();
+    }
+
+    operator Value const &() const
+    {
+        return value();
     }
 };
 

@@ -50,8 +50,8 @@ std::span<Byte, bytes_in_word> Instruction::M_value() const
 // (L:R) is 8L + R
 FieldSpec Instruction::field_spec() const
 {
-    NativeByte const &field = F();
-    return { .L = field / 8, .R = field % 8 };
+    NativeByte const field = F();
+    return FieldSpec::from_byte(field);
 }
 
 SliceMutable Instruction::MF() const

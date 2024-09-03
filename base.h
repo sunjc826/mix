@@ -98,6 +98,36 @@ union Byte
     Sign sign;
 };
 
+template <size_t size>
+struct ByteConversionResult
+{
+    std::array<Byte, size> bytes;
+    bool overflow;
+};
+
+template <size_t size>
+ByteConversionResult<size> as_bytes(NativeInt value);
+
+struct FieldSpec
+{
+    NativeByte L, R;
+
+    static FieldSpec from_byte(NativeByte field)
+    {
+        return {.L = field / 8, .R = field % 8};
+    }
+
+    NativeByte length() const
+    {
+        return R - L;
+    }
+
+    NativeByte make_F_byte() const
+    {
+        return 8 * L + R;
+    }
+};
+
 enum class OwnershipKind
 {
     owns,
@@ -156,7 +186,9 @@ struct IntegralContainer
     // If there is a sign byte, then the total number of bytes must > 1,
     // since there must be at least 1 numerical byte.
     static constexpr size_t num_begin = is_signed ? 1 : 0;
-    static_assert(!is_signed || size > 1);
+    static_assert(size > 0);
+    static constexpr size_t unsigned_size = is_signed ? size - 1 : size;
+    static_assert(unsigned_size > 0);
 
     IntegralContainer(std::span<typename Container::element_type, size> sp)
         : container(Container::constructor(sp))
@@ -176,6 +208,37 @@ struct IntegralContainer
         : container(Container::constructor(w.container))
     {}
 
+    IntegralContainer(NativeInt value)
+        : container()
+    {
+        if constexpr (is_signed)
+        {
+            if (value < 0)
+            {
+                container[0].sign = s_minus;
+                value = -value;
+            }
+            else
+            {
+                container[0].sign = s_plus;
+            }
+        }
+        else
+        {
+            if (value < 0)
+                throw std::runtime_error("Negative value cannot be placed in an unsigned MIX integer");
+        }
+
+        for (size_t s = size; s --> 1;)
+        {
+            container[s].byte = value % byte_size;
+            value /= byte_size;
+        }
+
+        if (value > 0)
+            throw std::runtime_error("Overflow");
+    }
+
     NativeInt native_sign() const;
 
     template <typename EnableIfT = std::enable_if<!Container::is_view, std::conditional_t<is_signed, Sign &, Sign>>>
@@ -190,21 +253,6 @@ template <OwnershipKind kind>
 struct Word : IntegralContainer<kind, true, bytes_in_word>
 {
     using Container = OwnershipKindContainer<kind, Byte, bytes_in_word>;    
-};
-
-struct FieldSpec
-{
-    NativeByte L, R;
-
-    NativeByte length() const
-    {
-        return R - L;
-    }
-
-    NativeByte make_F_byte() const
-    {
-        return 8 * L + R;
-    }
 };
 
 template <bool is_signed, size_t size = std::dynamic_extent>
@@ -233,6 +281,15 @@ struct Slice
     explicit Slice(std::span<PossiblyConstByte, size> sp, FieldSpec spec)
         : sp(sp.subspan(spec.L, spec.length())), spec(spec)
     {}
+
+    template <OwnershipKind kind, bool is_signed, size_t size,
+        typename EnableIfT = std::conditional<is_view, 
+            FieldSpec, 
+            std::enable_if_t<!OwnershipKindContainer<kind>::is_view, FieldSpec>>>
+    explicit Slice(IntegralContainer<kind, is_signed, size> &integral_container, typename EnableIfT::type spec)
+        : sp(std::span<PossiblyConstByte, size>(integral_container.container).subspan(spec.L, spec.length())), spec(spec)
+    {}
+    
 
     template <size_t size, typename EnableIfT = std::enable_if<is_view, Byte>>
     explicit Slice(std::span<typename EnableIfT::type, size> sp, FieldSpec spec)
@@ -270,15 +327,5 @@ struct Slice
 using SliceMutable = Slice<false>;
 
 using SliceView = Slice<true>;
-
-template <size_t size>
-struct ByteConversionResult
-{
-    std::array<Byte, size> bytes;
-    bool overflow;
-};
-
-template <size_t size>
-ByteConversionResult<size> as_bytes(NativeInt value);
 
 #include <base.impl.h>

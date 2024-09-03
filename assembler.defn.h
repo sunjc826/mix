@@ -3,10 +3,47 @@
 #include <error.h>
 
 #include <istream>
+#include <unordered_map>
 
 struct BufferedIStream
 {
     std::istream input;
+};
+
+struct ExpressionParser
+{
+    std::string_view sv;
+    std::unordered_map<std::string, NativeInt> const &symbol_table;
+    ExpressionParser(std::string_view expr, std::unordered_map<std::string, NativeInt> const &symbol_table)
+        : sv(expr), symbol_table(symbol_table)
+    {}
+
+    // Precondition: sv non-empty
+    char getchar();
+
+    void
+    parse_number();
+
+    void
+    parse_atomic_expression();
+
+    Result<NativeInt, Error>
+    parse_expression();
+
+    void
+    parse_A_part();
+
+    void
+    parse_index_part();
+
+    Result<NativeByte, Error>
+    parse_F_part();
+
+    void
+    parse_instruction_address();
+
+    Result<NativeInt, Error>
+    parse_W_value();
 };
 
 class Assembler

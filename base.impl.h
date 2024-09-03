@@ -124,4 +124,3 @@ ByteConversionResult<size> as_bytes(NativeInt value)
 
     return result;
 }
-

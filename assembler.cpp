@@ -1,3 +1,5 @@
+#include "assembler.defn.h"
+#include "base.h"
 #include <error.h>
 #include <assembler.h>
 
@@ -45,6 +47,48 @@ skip_line(std::istream &s)
     s.ignore(std::numeric_limits<size_t>::max(), '\n');
 }
 
+void
+ExpressionParser::parse_instruction_address()
+{
+    
+}
+
+char
+ExpressionParser::getchar()
+{
+    char const result = sv.front();
+    sv.remove_prefix(1);
+    return result;
+}
+
+Result<NativeInt, Error> 
+ExpressionParser::parse_W_value()
+{
+    NativeInt W_value = 0;
+    goto begin_loop;
+    do
+    {
+        if (getchar() != ',')
+        {
+            g_logger << "Expected comma\n";
+            return Result<NativeInt, Error>::failure(err_invalid_input);
+        }
+begin_loop:
+        auto const expression_result = parse_expression();
+        if (!expression_result)
+            return Result<NativeInt, Error>::failure(err_invalid_input);
+        NativeInt const expression = expression_result;
+        auto const F_part_result = parse_F_part();
+        if (!F_part_result)
+            return Result<NativeInt, Error>::failure(err_invalid_input);
+        NativeByte const F_part = F_part_result;
+        FieldSpec const field_spec = FieldSpec::from_byte(F_part);
+        Word<OwnershipKind::owns> word(expression);
+        SliceView slice(word, field_spec);
+    }
+    while(!sv.empty());
+    return Result<NativeInt, Error>::success(W_value);
+}
 
 Result<bool, Error>
 Assembler::assemble_line()
