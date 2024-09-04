@@ -1,5 +1,6 @@
 #pragma once
 #include <config.h>
+#include <error.h>
 #include <utilities.h>
 
 #include <algorithm>
@@ -53,6 +54,12 @@ static_assert(representable_values_v<NativeByte> >= byte_size);
 // require that NativeInt is large enough to hold the largest value of 
 // any representable integral value.
 using NativeInt = long long;
+
+static __attribute__((always_inline))
+Result<NativeByte, Error> mix_int_to_mix_byte(NativeInt i);
+
+static __attribute__((always_inline))
+Result<NativeByte, Error> mix_int_to_register_index(NativeInt i);
 
 // Instead of providing a generalized constexpr integral pow function,
 // let's only compute powers up to 11 due to rAX.

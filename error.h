@@ -6,4 +6,5 @@ enum Error
     err_io,
     err_invalid_input,
     err_overflow,
+    err_out_of_bounds,
 };

@@ -18,6 +18,9 @@ struct ExpressionParser
         : sv(expr), symbol_table(symbol_table)
     {}
 
+    template <bool assert_non_empty, bool consume_if_match>
+    bool check(char ch);
+
     // Precondition: sv non-empty
     char getchar();
 
@@ -36,7 +39,7 @@ struct ExpressionParser
     Result<NativeByte, Error>
     parse_index_part();
 
-    Result<NativeByte, Error>
+    Result<std::optional<NativeByte>, Error>
     parse_F_part();
 
     Result<NativeInt, Error>

@@ -49,18 +49,23 @@ skip_line(std::istream &s)
     s.ignore(std::numeric_limits<size_t>::max(), '\n');
 }
 
-void
-ExpressionParser::parse_instruction_address()
+template <bool assert_non_empty, bool consume_if_match>
+bool
+ExpressionParser::check(char ch)
 {
-    
-}
+    if constexpr(!assert_non_empty)
+    {
+        if (sv.empty())
+            return false;
+    }
 
-char
-ExpressionParser::getchar()
-{
-    char const result = sv.front();
-    sv.remove_prefix(1);
-    return result;
+    if (sv.front() != ch)
+        return false;
+    
+    if constexpr(consume_if_match)
+        sv.remove_prefix(1);
+
+    return true;
 }
 
 Result<NativeInt, Error>
@@ -72,19 +77,51 @@ ExpressionParser::parse_A_part()
 Result<NativeByte, Error>
 ExpressionParser::parse_index_part()
 {
+    if (!check<false, true>(','))
+        return Result<NativeByte, Error>::success(0);
+    
+    auto const expression_result = parse_expression();
+    if (!expression_result)
+        return Result<NativeByte, Error>::failure(err_invalid_input);
+    NativeInt const expression = expression_result;
 
+    auto const index_result = mix_int_to_mix_byte(expression);
+    if (!index_result)
+        return Result<NativeByte, Error>::failure(err_invalid_input);
+    NativeByte const index = index_result;
+
+    return Result<NativeByte, Error>::success(index);
 }
 
-Result<NativeByte, Error>
+Result<std::optional<NativeByte>, Error>
 ExpressionParser::parse_F_part()
 {
+    if (!check<false, true>('('))
+        return Result<std::optional<NativeByte>, Error>::success(std::nullopt);
 
+    auto const expression_result = parse_expression();
+    if (!expression_result)
+        return Result<std::optional<NativeByte>, Error>::failure(err_invalid_input);
+    NativeInt const expression = expression_result;
+    
+    auto const F_part_result = mix_int_to_mix_byte(expression);
+    if (!F_part_result)
+        return Result<std::optional<NativeByte>, Error>::failure(err_invalid_input);
+
+    if (!check<false, true>(')'))
+    {
+        g_logger << "Missing right bracket of F-part\n";
+        return Result<std::optional<NativeByte>, Error>::failure(err_invalid_input);
+    }
+
+    NativeByte const F_part = F_part_result;
+    return Result<std::optional<NativeByte>, Error>::success(F_part);
 }
 
 Result<NativeInt, Error>
 ExpressionParser::parse_instruction_address()
 {
-    
+
 }
 
 Result<NativeInt, Error> 
@@ -96,7 +133,7 @@ ExpressionParser::parse_W_value()
     goto begin_loop;
     do
     {
-        if (getchar() != ',')
+        if (!check<true, true>(','))
         {
             g_logger << "Expected comma\n";
             return Result<NativeInt, Error>::failure(err_invalid_input);

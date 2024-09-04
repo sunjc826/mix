@@ -1,10 +1,24 @@
 #pragma once
 #include <base.h>
 #include <stdexcept>
+
+Result<NativeByte, Error> mix_int_to_mix_byte(NativeInt i)
+{
+    if (i < 0 || i >= byte_size)
+        return Result<NativeByte, Error>::failure(err_overflow);
+    return Result<NativeByte, Error>::success(static_cast<NativeByte>(i));
+}
+
+Result<NativeByte, Error> mix_int_to_register_index(NativeInt i)
+{
+    if (i <= 0 || i > 6)
+        return Result<NativeByte, Error>::failure(err_out_of_bounds);
+    return Result<NativeByte, Error>::success(static_cast<NativeByte>(i));
+}
+
 // Instead of providing a generalized constexpr integral pow function,
 // let's only compute powers up to 11 due to rAX.
 // Higher powers are unnecessary.
-static __attribute__((always_inline))
 constexpr std::array<NativeInt, bytes_in_extended_word> 
 pow_lookup_table(NativeByte base)
 {
@@ -33,13 +47,13 @@ pow(NativeByte base)
     return pow(base, exponent);
 }
 
+// TODO: change to use Result datatype instead of throwing exceptions
 void check_address_bounds(NativeInt value)
 {
-    
-    // if (value < 0)
-        // throw std::runtime_error("Negative address");
-    // else if (value >= main_memory_size)
-    //     throw std::runtime_error("Overflowing address");
+    if (value < 0)
+        throw std::runtime_error("Negative address");
+    else if (value >= main_memory_size)
+        throw std::runtime_error("Overflowing address");
 }
 
 // Every negative MIX integral value must be representable by NativeInt
