@@ -1,4 +1,5 @@
 #pragma once
+#include "base.h"
 #include <machine.defn.h>
 
 __attribute__((always_inline)) inline
@@ -36,8 +37,8 @@ std::optional<std::reference_wrapper<IndexRegister>> Machine::get_index_register
 }
 
 __attribute__((always_inline)) inline
-std::span<Byte, 6> Machine::get_memory_word(NativeInt address)
+Word<OwnershipKind::mutable_view> Machine::get_memory_word(NativeInt address)
 {
     check_address_bounds(address);
-    return std::span<Byte, 6>{memory.begin() + address * bytes_in_word, bytes_in_word};
+    return {std::span<Byte, bytes_in_word>{memory.begin() + address * bytes_in_word, bytes_in_word}};
 }

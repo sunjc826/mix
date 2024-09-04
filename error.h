@@ -5,4 +5,5 @@ enum Error
 {
     err_io,
     err_invalid_input,
+    err_overflow,
 };

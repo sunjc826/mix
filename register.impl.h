@@ -24,7 +24,6 @@ NativeInt RegisterWithoutSign<size>::native_unsigned_value() const
 template <size_t size>
 void RegisterWithoutSign<size>::store(Sign sign, SliceMutable slice) const
 {
-
 }
 
 template <bool is_signed, size_t size>
@@ -99,7 +98,7 @@ void Register<is_signed, size>::load(std::span<Byte const, size> sp)
 
 template <bool is_signed, size_t size>
 template <bool throw_on_overflow>
-bool Register<is_signed, size>::load(NativeInt value)
+std::conditional_t<throw_on_overflow, void, bool> Register<is_signed, size>::load(NativeInt value)
 {
     ByteConversionResult<size> const result = as_bytes<size>(value);
     
@@ -110,7 +109,8 @@ bool Register<is_signed, size>::load(NativeInt value)
     }
 
     load(result.bytes);
-    return result.overflow;
+    if constexpr (!throw_on_overflow)
+        return result.overflow;
 }
 
 template <bool is_signed, size_t size>
@@ -121,36 +121,17 @@ EnableIfT::type Register<is_signed, size>::load(Sign sign, std::span<Byte const,
     std::copy(sp.begin(), sp.end(), reg.begin() + 1);
 }
 
-// TODO: is_signed
 template <bool is_signed, size_t size>
 void Register<is_signed, size>::store(SliceMutable slice) const
 {
-    FieldSpec spec = slice.spec;
-    if (spec.L == 0)
+    if (slice.is_signed())
     {
-        spec.L = 1;
-        if constexpr (is_signed)
-        {
-            spec.L--;
-            spec.R--;
-        }
-
-        if (spec.R >= spec.L)
-        {
-            SliceView own_slice(std::span<Byte const, size>(reg.begin(), reg.end()), spec);
-            std::copy(own_slice.sp.begin(), own_slice.sp.end(), slice.sp.begin() + 1);
-        }
-        slice.sp[0].sign = sign();
+        slice.sp[0].sign = reg.sign();
+        std::copy(reg.end() - (slice.length() - 1), reg.end(), slice.sp.begin() + 1);
     }
-    else 
+    else
     {
-        if constexpr (is_signed)
-        {
-            spec.L--;
-            spec.R--;
-        }
-        SliceView own_slice(std::span<Byte const, size>(reg.begin(), reg.end()), spec);
-        std::copy(own_slice.sp.begin(), own_slice.sp.end(), slice.sp.begin());
+        std::copy(reg.end() - slice.length(), reg.end(), slice.sp.begin());
     }
 }
 

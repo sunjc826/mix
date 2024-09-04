@@ -14,7 +14,7 @@ void Machine::do_nop()
 
 void Machine::do_add()
 {
-    if (rA.load(rA.native_value() + inst.native_MF()))
+    if (rA.load<false>(rA.native_value() + inst.native_MF()))
         overflow = true;
     increment_pc();
 }
@@ -27,7 +27,7 @@ void Machine::do_fadd()
 
 void Machine::do_sub()
 {
-    if (rA.load(rA.native_value() - inst.native_MF()))
+    if (rA.load<false>(rA.native_value() - inst.native_MF()))
         overflow = true;
     increment_pc();
 }
@@ -65,11 +65,11 @@ void Machine::do_div()
     // sgn(rAX / V) * floor(|rAX / V|)
     // Regular division already rounds toward zero, thereby achieving the desired effect.
     NativeInt const quotient = dividend / divisor;
-    rA.load(quotient);
+    rA.load<false>(quotient);
 
     // sgn(rAX) * (|rAX| mod |V|)
     NativeInt const remainder = dividend_sign * (std::labs(dividend) % std::labs(divisor));
-    rX.load(remainder);
+    rX.load<false>(remainder);
 
     increment_pc();
 }
@@ -98,7 +98,7 @@ void Machine::do_num()
     if (rA.sign() == s_minus)
         value = -value;
 
-    if (rA.load(value))
+    if (rA.load<false>(value))
         std::cerr << "Warning: overflow during NUM\n";
     increment_pc();
 }
@@ -157,7 +157,7 @@ void Machine::do_ld()
 {
     SliceView const slice = inst.MF();
     RegisterT &reg = this->*reg_member_ptr;
-    reg.load_throw_on_overflow(slice.native_value());
+    reg.template load<true>(slice.native_value());
 }
 
 template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
@@ -165,14 +165,14 @@ void Machine::do_ldn()
 {
     SliceView const slice = inst.MF();
     RegisterT &reg = this->*reg_member_ptr;
-    reg.load_throw_on_overflow(-slice.native_value());
+    reg.template load<true>(-slice.native_value());
 }
 
 template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
 void Machine::do_st()
 {
     SliceMutable const slice = inst.MF();
-    RegisterT &reg = this->*reg_member_ptr;
+    RegisterT const &reg = this->*reg_member_ptr;
     reg.store(slice);
 }
 
@@ -208,7 +208,7 @@ void Machine::do_ent()
     if (new_reg_value == 0)
         reg.load_zero(inst.sign());
     else
-        reg.load_throw_on_overflow(new_reg_value);
+        reg.template load<true>(new_reg_value);
 }
 
 template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
@@ -219,15 +219,16 @@ void Machine::do_enn()
     if (M == 0)
         reg.load_zero(-inst.sign());
     else
-        reg.load_throw_on_overflow(-M);
+        reg.template load<true>(-M);
 }
 
 template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
 void Machine::do_cmp()
 {
     SliceView const mem_slice = inst.MF();
-    RegisterT &reg = this->*reg_member_ptr;
-    SliceView const reg_slice = reg.make_slice(mem_slice.spec);
+    RegisterT const &reg = this->*reg_member_ptr;
+    IntegralContainer<OwnershipKind::view, RegisterT::is_signed_v, RegisterT::size_v> container = reg;
+    SliceView const reg_slice(container, mem_slice.spec);
     comparison = reg_slice.native_value() <=> mem_slice.native_value();
 }
 

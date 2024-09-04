@@ -30,16 +30,16 @@ struct ExpressionParser
     Result<NativeInt, Error>
     parse_expression();
 
-    void
+    Result<NativeInt, Error>
     parse_A_part();
 
-    void
+    Result<NativeByte, Error>
     parse_index_part();
 
     Result<NativeByte, Error>
     parse_F_part();
 
-    void
+    Result<NativeInt, Error>
     parse_instruction_address();
 
     Result<NativeInt, Error>

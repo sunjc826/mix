@@ -1,7 +1,9 @@
 #include "assembler.defn.h"
 #include "base.h"
-#include <error.h>
+#include "register.defn.h"
 #include <assembler.h>
+#include <register.h>
+#include <error.h>
 
 #include <array>
 #include <limits>
@@ -61,10 +63,36 @@ ExpressionParser::getchar()
     return result;
 }
 
+Result<NativeInt, Error>
+ExpressionParser::parse_A_part()
+{
+
+}
+
+Result<NativeByte, Error>
+ExpressionParser::parse_index_part()
+{
+
+}
+
+Result<NativeByte, Error>
+ExpressionParser::parse_F_part()
+{
+
+}
+
+Result<NativeInt, Error>
+ExpressionParser::parse_instruction_address()
+{
+    
+}
+
 Result<NativeInt, Error> 
 ExpressionParser::parse_W_value()
 {
-    NativeInt W_value = 0;
+    Register<true, bytes_in_word> reg;
+    Word<OwnershipKind::owns> word;
+    reg.store(word);
     goto begin_loop;
     do
     {
@@ -83,10 +111,16 @@ begin_loop:
             return Result<NativeInt, Error>::failure(err_invalid_input);
         NativeByte const F_part = F_part_result;
         FieldSpec const field_spec = FieldSpec::from_byte(F_part);
-        Word<OwnershipKind::owns> word(expression);
-        SliceView slice(word, field_spec);
+        bool const is_overflow = reg.load<false>(expression);
+        if (is_overflow)
+            return Result<NativeInt, Error>::failure(err_overflow);
+        
+        SliceMutable const slice(word, field_spec);
+        reg.store(slice);
     }
     while(!sv.empty());
+
+    NativeInt const W_value = word.native_value();
     return Result<NativeInt, Error>::success(W_value);
 }
 

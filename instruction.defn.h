@@ -26,7 +26,7 @@ struct Instruction : public Word<OwnershipKind::owns>
     }
 
     // Returns *M, where * represents dereferencing
-    std::span<Byte, bytes_in_word> M_value() const;
+    Word<OwnershipKind::mutable_view> M_value() const;
 
     NativeByte F() const
     {

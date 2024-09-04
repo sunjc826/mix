@@ -2,25 +2,6 @@
 #include <base.h>
 #include <register.decl.h>
 
-// Useful if we get overwhelmed by templates and want to use runtime polymorphism
-struct TypeErasedRegister
-{
-    virtual bool get_is_signed() const = 0;
-    virtual size_t get_size() const = 0;
-    virtual size_t get_unsigned_size() const = 0;
-    virtual size_t get_numerical_first_idx() const = 0;
-    virtual std::span<Byte> get_span() = 0;
-    virtual NativeInt native_value() const = 0;
-    virtual NativeInt native_unsigned_value() const = 0;
-    virtual bool load_no_throw_on_overflow(NativeInt value) = 0;
-    virtual void load_throw_on_overflow(NativeInt value) = 0;
-    virtual void load_zero(Sign sign) = 0;
-    virtual bool increment(NativeInt addend) { return load_no_throw_on_overflow(native_value() + addend); };
-    void load(SliceView slice) { load_throw_on_overflow(slice.native_value()); }
-    virtual void store(SliceMutable slice) const = 0;
-    SliceMutable make_slice(FieldSpec spec);
-};
-
 struct ZeroRegister final
 {
     Sign sign() const;
@@ -31,19 +12,16 @@ struct ZeroRegister final
 };
 
 template <bool is_signed, size_t size>
-struct Register : TypeErasedRegister
+struct Register 
 {
     static constexpr bool is_signed_v = is_signed;
     static constexpr size_t size_v = size;
     static constexpr size_t unsigned_size_v = is_signed ? size - 1 : size;
     static constexpr size_t numerical_first_idx = is_signed ? 1 : 0;
+    
+    static_assert(unsigned_size_v + 1 <= bytes_in_word);
 
-    bool get_is_signed() const override final { return is_signed_v; }
-    size_t get_size() const override final { return size_v; }
-    size_t get_unsigned_size() const override final { return unsigned_size_v; }
-    size_t get_numerical_first_idx() const override final { return numerical_first_idx; }
-
-    std::array<Byte, size> reg = {};
+    std::array<Byte, size> reg = { {[0] = is_signed ? s_plus : 0} };
 
     Register() = default;
     
@@ -54,7 +32,7 @@ struct Register : TypeErasedRegister
     template <typename EnableIfT = std::enable_if<is_signed, RegisterWithoutSign<size - 1>>>
     EnableIfT::type unsigned_register() const;
 
-    std::span<Byte> get_span() override final { return reg; }
+    std::span<Byte> get_span() { return reg; }
 
     std::conditional_t<is_signed, Sign &, Sign> sign();
     Sign sign() const;
@@ -66,8 +44,8 @@ struct Register : TypeErasedRegister
     IntView<is_signed, size> value() const;
     IntView<false, unsigned_size_v> unsigned_value() const;
 
-    NativeInt native_value() const override final;
-    NativeInt native_unsigned_value() const override final;
+    NativeInt native_value() const;
+    NativeInt native_unsigned_value() const;
 
     void load(std::span<Byte const, size> sp);
 
@@ -75,13 +53,10 @@ struct Register : TypeErasedRegister
     EnableIfT::type load(Sign sign, std::span<Byte const, size - 1> sp);
 
     // Returns whether the load overflows
-    template <bool throw_on_overflow = false>
-    bool load(NativeInt value);
+    template <bool throw_on_overflow>
+    std::conditional_t<throw_on_overflow, void, bool> load(NativeInt value);
 
-    bool load_no_throw_on_overflow(NativeInt value) override final { return load<false>(value); }
-    void load_throw_on_overflow(NativeInt value) override final { load<true>(value); };
-
-    void load_zero(Sign sign) override final 
+    void load_zero(Sign sign)
     { 
         if constexpr (is_signed)
         {
@@ -94,7 +69,7 @@ struct Register : TypeErasedRegister
         }
     }
 
-    void store(SliceMutable slice) const override final;
+    void store(SliceMutable slice) const;
 
     void shift_left(NativeInt shift_by);
 
@@ -103,6 +78,16 @@ struct Register : TypeErasedRegister
     void shift_left_circular(NativeInt shift_by);
 
     void shift_right_circular(NativeInt shift_by);
+
+    operator IntegralContainer<OwnershipKind::mutable_view, is_signed, size>()
+    {
+        return IntegralContainer<OwnershipKind::mutable_view, is_signed, size>(reg);
+    }
+
+    operator IntegralContainer<OwnershipKind::view, is_signed, size>() const
+    {
+        return IntegralContainer<OwnershipKind::view, is_signed, size>(reg);
+    }
 };
 
 template <size_t size>
@@ -124,13 +109,17 @@ struct RegisterWithoutSign final
 
 struct NumberRegister final : public Register<true, 6>
 { 
+    bool increment(NativeInt addend) 
+    { 
+        return load<false>(native_value() + addend); 
+    };
 };
 
 struct IndexRegister final : public Register<true, 3>
 {
-    bool increment(NativeInt addend) override final
+    bool increment(NativeInt addend)
     {
-        load_throw_on_overflow(native_value() + addend);
+        load<true>(native_value() + addend);
         return false;
     }
 };

@@ -190,6 +190,10 @@ struct IntegralContainer
     static constexpr size_t unsigned_size = is_signed ? size - 1 : size;
     static_assert(unsigned_size > 0);
 
+    IntegralContainer()
+        : container()
+    {}
+
     IntegralContainer(std::span<typename Container::element_type, size> sp)
         : container(Container::constructor(sp))
     {}
@@ -252,7 +256,8 @@ struct IntegralContainer
 template <OwnershipKind kind>
 struct Word : IntegralContainer<kind, true, bytes_in_word>
 {
-    using Container = OwnershipKindContainer<kind, Byte, bytes_in_word>;    
+    using Container = OwnershipKindContainer<kind, Byte, bytes_in_word>; 
+    using Ref = std::conditional_t<kind == OwnershipKind::owns, Word<kind> &, Word<kind> const &>;   
 };
 
 template <bool is_signed, size_t size = std::dynamic_extent>
@@ -272,29 +277,36 @@ struct Slice
         : sp(slice.sp), spec(slice.spec)
     {}
 
-    template <size_t size>
-    explicit Slice(std::span<PossiblyConstByte, size> sp)
-        : sp(sp), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
+    Slice(Word<OwnershipKind::owns> &word)
+        : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
     {}
 
-    template <size_t size>
-    explicit Slice(std::span<PossiblyConstByte, size> sp, FieldSpec spec)
-        : sp(sp.subspan(spec.L, spec.length())), spec(spec)
+    Slice(Word<OwnershipKind::mutable_view> const &word)
+        : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
     {}
 
-    template <OwnershipKind kind, bool is_signed, size_t size,
-        typename EnableIfT = std::conditional<is_view, 
-            FieldSpec, 
-            std::enable_if_t<!OwnershipKindContainer<kind>::is_view, FieldSpec>>>
-    explicit Slice(IntegralContainer<kind, is_signed, size> &integral_container, typename EnableIfT::type spec)
-        : sp(std::span<PossiblyConstByte, size>(integral_container.container).subspan(spec.L, spec.length())), spec(spec)
+    template <typename EnableIfT = std::enable_if<!is_view, Word<OwnershipKind::view> const &>>
+    Slice(EnableIfT::type word)
+        : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
     {}
-    
 
-    template <size_t size, typename EnableIfT = std::enable_if<is_view, Byte>>
-    explicit Slice(std::span<typename EnableIfT::type, size> sp, FieldSpec spec)
-        : sp(sp.subspan(spec.L, spec.length())), spec(spec)
+    Slice(Word<OwnershipKind::owns> &word, FieldSpec spec)
+        : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container).subspan(spec.L, spec.length())), spec(spec)
     {}
+
+    Slice(Word<OwnershipKind::mutable_view> const &word, FieldSpec spec)
+        : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container).subspan(spec.L, spec.length())), spec(spec)
+    {}
+
+    template <typename EnableIfT = std::enable_if<!is_view, Word<OwnershipKind::view> const &>>
+    Slice(EnableIfT::type word, FieldSpec spec)
+        : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container).subspan(spec.L, spec.length())), spec(spec)
+    {}
+
+    bool is_signed() const
+    {
+        return spec.L == 0;
+    }
 
     Sign sign() const
     {

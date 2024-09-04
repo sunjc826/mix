@@ -1,3 +1,4 @@
+#include <base.h>
 #include <instruction.h>
 #include <register.h>
 #include <machine.h>
@@ -41,7 +42,7 @@ NativeInt Instruction::native_M() const
     return address;
 }
 
-std::span<Byte, bytes_in_word> Instruction::M_value() const
+Word<OwnershipKind::mutable_view> Instruction::M_value() const
 {
     NativeInt address = native_M();
     return m.get_memory_word(address);
@@ -56,7 +57,7 @@ FieldSpec Instruction::field_spec() const
 
 SliceMutable Instruction::MF() const
 {
-    std::span<Byte, bytes_in_word> const value_at_address_M = M_value();
+    Word<OwnershipKind::mutable_view> const value_at_address_M = M_value();
     return SliceMutable(value_at_address_M, field_spec());
 }
 
