@@ -56,10 +56,58 @@ static_assert(representable_values_v<NativeByte> >= byte_size);
 using NativeInt = long long;
 
 static __attribute__((always_inline))
+bool is_mix_byte(NativeInt i);
+
+static __attribute__((always_inline))
+bool is_register_index(NativeInt i);
+
+static __attribute__((always_inline))
+bool is_mix_address(NativeInt i);
+
+static __attribute__((always_inline))
 Result<NativeByte, Error> mix_int_to_mix_byte(NativeInt i);
 
 static __attribute__((always_inline))
 Result<NativeByte, Error> mix_int_to_register_index(NativeInt i);
+
+class ValidatedAddress
+{
+    NativeInt i;
+    ValidatedAddress(NativeInt i) : i(i) {}
+public:
+    __attribute__((always_inline))
+    std::optional<ValidatedAddress> validated_constructor(NativeInt i)
+    {
+        if (!is_mix_address(i)) return std::nullopt;
+        return ValidatedAddress(i);
+    }
+};
+
+class ValidatedByte
+{
+    NativeByte b;
+    ValidatedByte(NativeByte b) : b(b) {}
+public:
+    __attribute__((always_inline))
+    std::optional<ValidatedByte> validated_constructor(NativeInt i)
+    {
+        if (!is_mix_byte(i)) return std::nullopt;
+        return ValidatedByte(i);
+    }
+};
+
+class ValidatedRegisterIndex
+{
+    NativeByte b;
+    ValidatedRegisterIndex(NativeByte b) : b(b) {}
+public:
+    __attribute__((always_inline))
+    std::optional<ValidatedRegisterIndex> validated_constructor(NativeInt i)
+    {
+        if (!is_register_index(i)) return std::nullopt;
+        return ValidatedRegisterIndex(i);
+    }
+};
 
 // Instead of providing a generalized constexpr integral pow function,
 // let's only compute powers up to 11 due to rAX.

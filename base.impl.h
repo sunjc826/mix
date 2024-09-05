@@ -2,16 +2,31 @@
 #include <base.h>
 #include <stdexcept>
 
+bool is_mix_byte(NativeInt i)
+{
+    return !(i < 0 || i >= byte_size);
+}
+
+bool is_register_index(NativeInt i)
+{
+    return !(i <= 0 || i > 6);
+}
+
+bool is_mix_address(NativeInt i)
+{
+    return !(i < 0 || i >= main_memory_size);
+}
+
 Result<NativeByte, Error> mix_int_to_mix_byte(NativeInt i)
 {
-    if (i < 0 || i >= byte_size)
+    if (!is_mix_byte(i))
         return Result<NativeByte, Error>::failure(err_overflow);
     return Result<NativeByte, Error>::success(static_cast<NativeByte>(i));
 }
 
 Result<NativeByte, Error> mix_int_to_register_index(NativeInt i)
 {
-    if (i <= 0 || i > 6)
+    if (!is_register_index(i))
         return Result<NativeByte, Error>::failure(err_out_of_bounds);
     return Result<NativeByte, Error>::success(static_cast<NativeByte>(i));
 }

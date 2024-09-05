@@ -12,12 +12,6 @@ struct BufferedIStream
     std::istream input;
 };
 
-struct SavedCursorStringState
-{
-    size_t column_number;
-    char const *begin;
-};
-
 struct Cursor
 {
     size_t line_number;
@@ -37,11 +31,13 @@ struct Cursor
         full_line_segment = partial_line_segment = rest_of_line;
     }
 
+    __attribute__((always_inline))
     bool empty()
     {
         return partial_line_segment.empty();
     }
 
+    __attribute__((always_inline))
     char front()
     {
         return partial_line_segment.front();
@@ -83,6 +79,7 @@ struct Cursor
         return true;
     }
 
+    __attribute__((always_inline))
     void advance()
     {
         partial_line_segment.remove_prefix(1);
@@ -94,14 +91,16 @@ struct Cursor
         return partial_line_segment.begin() - full_line_segment.begin();
     }
 
-    SavedCursorStringState save_str_begin()
+    __attribute__((always_inline))
+    char const *save_str_begin()
     {
-        return {.column_number = column_number, .begin = partial_line_segment.begin()};
+        return partial_line_segment.begin();
     }
 
-    std::string_view saved_str_end(SavedCursorStringState state)
+    __attribute__((always_inline))
+    std::string_view saved_str_end(char const *saved_begin)
     {
-        return {state.begin, column_number - state.column_number};
+        return {saved_begin, partial_line_segment.begin()};
     }
 };
 
@@ -115,6 +114,18 @@ struct LiteralConstant
     NativeInt value;
 };
 
+struct SymbolString
+{
+    std::string_view symbol;
+};
+
+struct NumberString
+{
+    std::string_view number;
+};
+
+struct EmptyString {};
+
 struct ExpressionParser
 {
     Cursor &cursor;
@@ -123,8 +134,11 @@ struct ExpressionParser
         : cursor(cursor), symbol_table(symbol_table)
     {}
 
-    std::string_view
+    std::variant<SymbolString, NumberString, EmptyString>
     next_symbol_or_number();
+
+    Result<NativeInt, Error>
+    parse_atomic_expression();
 
     Result<NativeInt, Error>
     parse_expression();

@@ -50,10 +50,10 @@ skip_line(std::istream &s)
 std::string_view
 ExpressionParser::next_symbol_or_number()
 {
-    SavedCursorStringState state = cursor.save_str_begin();
+    char const *begin = cursor.save_str_begin();
     while (!cursor.check<false, true, std::isalnum>())
         ;
-    return cursor.saved_str_end(state);
+    return cursor.saved_str_end(begin);
 }
 
 Result<std::optional<LiteralConstant>, Error>
@@ -100,9 +100,9 @@ ExpressionParser::try_parse_future_reference()
 }
 
 Result<NativeInt, Error>
-parse_expression()
+ExpressionParser::parse_expression()
 {
-
+    next_symbol_or_number();
 }
 
 Result<std::variant<NativeInt, LiteralConstant, FutureReference>, Error>
