@@ -1,6 +1,4 @@
 #include "assembler.defn.h"
-#include "base.h"
-#include "register.defn.h"
 #include <assembler.h>
 #include <register.h>
 #include <error.h>
@@ -49,35 +47,87 @@ skip_line(std::istream &s)
     s.ignore(std::numeric_limits<size_t>::max(), '\n');
 }
 
-template <bool assert_non_empty, bool consume_if_match>
-bool
-ExpressionParser::check(char ch)
+std::string_view
+ExpressionParser::next_symbol_or_number()
 {
-    if constexpr(!assert_non_empty)
+    SavedCursorStringState state = cursor.save_str_begin();
+    while (!cursor.check<false, true, std::isalnum>())
+        ;
+    return cursor.saved_str_end(state);
+}
+
+Result<std::optional<LiteralConstant>, Error>
+ExpressionParser::try_parse_literal_constant()
+{
+    if (!cursor.check<false, true>('='))
+        return Result<std::optional<LiteralConstant>, Error>::success(std::nullopt);
+    size_t const saved_position = cursor.column_number;
+    auto const W_value_result = parse_W_value();
+    size_t const current_position = cursor.column_number;
+    if (current_position - saved_position >= 10)
     {
-        if (sv.empty())
-            return false;
+        g_logger << "W value too long\n";
+        return Result<std::optional<LiteralConstant>, Error>::failure(err_invalid_input);
     }
 
-    if (sv.front() != ch)
-        return false;
-    
-    if constexpr(consume_if_match)
-        sv.remove_prefix(1);
+    if (!cursor.check<false, true>('='))
+    {
+        g_logger << "Expected closing =\n";
+        return Result<std::optional<LiteralConstant>, Error>::failure(err_invalid_input);
+    }
 
-    return true;
+    NativeInt const W_value = W_value_result;
+    return Result<std::optional<LiteralConstant>, Error>::success(W_value);
+}
+
+std::optional<FutureReference>
+ExpressionParser::try_parse_future_reference()
+{
+    Cursor const saved_cursor = cursor;
+    
+    std::string_view const symbol_or_number = next_symbol_or_number();
+    
+    auto it = std::find_if(symbol_or_number.begin(), symbol_or_number.end(), [](char ch){
+        return std::isalpha(ch);
+    });
+    if (it == symbol_or_number.end())
+    {
+        cursor = saved_cursor;
+        return std::nullopt;
+    }
+
+    return FutureReference{.symbol = symbol_or_number};
 }
 
 Result<NativeInt, Error>
-ExpressionParser::parse_A_part()
+parse_expression()
 {
 
+}
+
+Result<std::variant<NativeInt, LiteralConstant, FutureReference>, Error>
+ExpressionParser::parse_A_part()
+{
+    using ResultType = Result<std::variant<NativeInt, LiteralConstant, FutureReference>, Error>;
+    auto const literal_constant_result = try_parse_literal_constant();
+    if (!literal_constant_result)
+        return ResultType::failure(err_invalid_input);
+    std::optional<LiteralConstant> const literal_constant = literal_constant_result;
+    if (literal_constant)
+    {
+        return ResultType::success(*literal_constant);
+    }
+
+    auto const future_reference_result = try_parse_future_reference();
+    
+
+    parse_expression();    
 }
 
 Result<NativeByte, Error>
 ExpressionParser::parse_index_part()
 {
-    if (!check<false, true>(','))
+    if (!cursor.check<false, true>(','))
         return Result<NativeByte, Error>::success(0);
     
     auto const expression_result = parse_expression();
@@ -96,7 +146,7 @@ ExpressionParser::parse_index_part()
 Result<std::optional<NativeByte>, Error>
 ExpressionParser::parse_F_part()
 {
-    if (!check<false, true>('('))
+    if (!cursor.check<false, true>('('))
         return Result<std::optional<NativeByte>, Error>::success(std::nullopt);
 
     auto const expression_result = parse_expression();
@@ -108,7 +158,7 @@ ExpressionParser::parse_F_part()
     if (!F_part_result)
         return Result<std::optional<NativeByte>, Error>::failure(err_invalid_input);
 
-    if (!check<false, true>(')'))
+    if (!cursor.check<false, true>(')'))
     {
         g_logger << "Missing right bracket of F-part\n";
         return Result<std::optional<NativeByte>, Error>::failure(err_invalid_input);
@@ -130,15 +180,8 @@ ExpressionParser::parse_W_value()
     Register<true, bytes_in_word> reg;
     Word<OwnershipKind::owns> word;
     reg.store(word);
-    goto begin_loop;
     do
     {
-        if (!check<true, true>(','))
-        {
-            g_logger << "Expected comma\n";
-            return Result<NativeInt, Error>::failure(err_invalid_input);
-        }
-begin_loop:
         auto const expression_result = parse_expression();
         if (!expression_result)
             return Result<NativeInt, Error>::failure(err_invalid_input);
@@ -146,16 +189,22 @@ begin_loop:
         auto const F_part_result = parse_F_part();
         if (!F_part_result)
             return Result<NativeInt, Error>::failure(err_invalid_input);
-        NativeByte const F_part = F_part_result;
-        FieldSpec const field_spec = FieldSpec::from_byte(F_part);
-        bool const is_overflow = reg.load<false>(expression);
-        if (is_overflow)
-            return Result<NativeInt, Error>::failure(err_overflow);
+        std::optional<NativeByte> const F_part = F_part_result;
         
-        SliceMutable const slice(word, field_spec);
+        DeferredValue<SliceMutable> slice;
+        if (F_part)
+        {
+            FieldSpec const field_spec = FieldSpec::from_byte(*F_part);
+            bool const is_overflow = reg.load<false>(expression);
+            if (is_overflow)
+                return Result<NativeInt, Error>::failure(err_overflow);
+            slice.construct(word, field_spec);
+        }
+        else
+            slice.construct(word);
         reg.store(slice);
     }
-    while(!sv.empty());
+    while(!cursor.check<false, true>(','));
 
     NativeInt const W_value = word.native_value();
     return Result<NativeInt, Error>::success(W_value);
