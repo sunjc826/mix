@@ -56,77 +56,78 @@ static_assert(representable_values_v<NativeByte> >= byte_size);
 using NativeInt = long long;
 
 static __attribute__((always_inline))
-bool is_mix_byte(NativeInt i);
+constexpr
+bool
+is_mix_byte(NativeInt i);
 
 static __attribute__((always_inline))
-bool is_register_index(NativeInt i);
+constexpr
+bool
+is_register_index(NativeInt i);
 
 static __attribute__((always_inline))
-bool is_mix_address(NativeInt i);
+constexpr
+bool
+is_mix_address(NativeInt i);
 
 static __attribute__((always_inline))
-Result<NativeByte, Error> mix_int_to_mix_byte(NativeInt i);
+constexpr
+bool
+is_mix_word(NativeInt i);
 
-static __attribute__((always_inline))
-Result<NativeByte, Error> mix_int_to_register_index(NativeInt i);
-
-class ValidatedAddress
+template <typename StorageT, bool (*validator)(NativeInt)>
+class ValidatedInt
 {
-    NativeInt i;
-    ValidatedAddress(NativeInt i) : i(i) {}
-public:
-    __attribute__((always_inline))
-    std::optional<ValidatedAddress> validated_constructor(NativeInt i)
+    StorageT value;
+    ValidatedInt(StorageT value) : value(value) {}
+public: 
+    static __attribute__((always_inline))
+    constexpr
+    std::optional<ValidatedInt> 
+    constructor(NativeInt value)
     {
-        if (!is_mix_address(i)) return std::nullopt;
-        return ValidatedAddress(i);
+        if (!validator(value)) return std::nullopt;
+        return ValidatedInt(value);
+    }
+
+    StorageT unwrap() const
+    {
+        return value;    
+    }
+
+    operator StorageT() const
+    {
+        return value;
     }
 };
 
-class ValidatedByte
-{
-    NativeByte b;
-    ValidatedByte(NativeByte b) : b(b) {}
-public:
-    __attribute__((always_inline))
-    std::optional<ValidatedByte> validated_constructor(NativeInt i)
-    {
-        if (!is_mix_byte(i)) return std::nullopt;
-        return ValidatedByte(i);
-    }
-};
-
-class ValidatedRegisterIndex
-{
-    NativeByte b;
-    ValidatedRegisterIndex(NativeByte b) : b(b) {}
-public:
-    __attribute__((always_inline))
-    std::optional<ValidatedRegisterIndex> validated_constructor(NativeInt i)
-    {
-        if (!is_register_index(i)) return std::nullopt;
-        return ValidatedRegisterIndex(i);
-    }
-};
+using ValidatedAddress = ValidatedInt<NativeInt, is_mix_address>;
+using ValidatedByte = ValidatedInt<NativeByte, is_mix_byte>;
+using ValidatedRegisterIndex = ValidatedInt<NativeByte, is_register_index>;
+using ValidatedWord = ValidatedInt<NativeInt, is_mix_word>;
 
 // Instead of providing a generalized constexpr integral pow function,
 // let's only compute powers up to 11 due to rAX.
 // Higher powers are unnecessary.
 static __attribute__((always_inline))
-constexpr std::array<NativeInt, 2 * numerical_bytes_in_word + 1> 
+constexpr
+std::array<NativeInt, 2 * numerical_bytes_in_word + 1> 
 pow_lookup_table(NativeByte base);
 
 static __attribute__((always_inline))
-constexpr NativeInt
+constexpr
+NativeInt
 pow(NativeByte base, size_t exponent);
 
 template <size_t exponent>
 static __attribute__((always_inline))
-constexpr NativeInt
+constexpr
+NativeInt
 pow(NativeByte base);
 
 static inline __attribute__((always_inline))
-void check_address_bounds(NativeInt value);
+void 
+check_address_bounds(NativeInt value);
 
 // prefer enum over enum class
 enum Sign : NativeByte
@@ -136,7 +137,8 @@ enum Sign : NativeByte
 };
 
 static __attribute__((always_inline))
-constexpr Sign 
+constexpr 
+Sign 
 operator-(Sign sign)
 {
     if (sign == s_plus) return s_minus;
@@ -144,7 +146,8 @@ operator-(Sign sign)
 }
 
 static __attribute__((always_inline))
-constexpr NativeInt 
+constexpr
+NativeInt
 native_sign(Sign sign);
 
 union Byte

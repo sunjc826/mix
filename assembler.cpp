@@ -1,4 +1,6 @@
 #include "assembler.defn.h"
+#include "base.h"
+#include <algorithm>
 #include <assembler.h>
 #include <register.h>
 #include <error.h>
@@ -6,6 +8,7 @@
 #include <array>
 #include <limits>
 #include <string_view>
+#include <variant>
 
 template <bool is_peek, typename T>
 __attribute__((always_inline))
@@ -47,13 +50,20 @@ skip_line(std::istream &s)
     s.ignore(std::numeric_limits<size_t>::max(), '\n');
 }
 
-std::string_view
+std::variant<SymbolString, NumberString, EmptyString>
 ExpressionParser::next_symbol_or_number()
 {
     char const *begin = cursor.save_str_begin();
     while (!cursor.check<false, true, std::isalnum>())
         ;
-    return cursor.saved_str_end(begin);
+    std::string_view const sv = cursor.saved_str_end(begin);
+    if (sv.empty())
+        return EmptyString{};
+    
+    if (std::find_if(sv.begin(), sv.end(), [](char ch){ return std::isalpha(ch); }) != sv.end())
+        return SymbolString{sv};
+    
+    return NumberString{sv};
 }
 
 Result<std::optional<LiteralConstant>, Error>
@@ -85,87 +95,123 @@ ExpressionParser::try_parse_future_reference()
 {
     Cursor const saved_cursor = cursor;
     
-    std::string_view const symbol_or_number = next_symbol_or_number();
+    auto const symbol_or_number = next_symbol_or_number();
     
-    auto it = std::find_if(symbol_or_number.begin(), symbol_or_number.end(), [](char ch){
-        return std::isalpha(ch);
-    });
-    if (it == symbol_or_number.end())
+    if (auto *symbol = std::get_if<SymbolString>(&symbol_or_number))
+    {
+        return FutureReference{*symbol};
+    }
+    else 
     {
         cursor = saved_cursor;
         return std::nullopt;
     }
-
-    return FutureReference{.symbol = symbol_or_number};
 }
 
-Result<NativeInt, Error>
-ExpressionParser::parse_expression()
+Result<std::optional<NativeInt>, Error>
+ExpressionParser::try_parse_atomic_expression()
 {
-    next_symbol_or_number();
+    using ResultType = Result<std::optional<NativeInt>, Error>;
+    auto const symbol_or_number = next_symbol_or_number();
+    if (auto *number = std::get_if<NumberString>(&symbol_or_number))
+    {
+        auto const it = std::find_if_not(number->number.begin(), number->number.end(), [](char ch){return ch == '0';});
+        if (it == number->number.end())
+            return Result<std::optional<NativeInt>, Error>::success(0);
+        NativeInt const value = std::strtol(it, NULL, 10);
+        // The MIXAL specification does not require the size of `value` to be within the bounds of a mix integer.
+        return ResultType::success(value);
+    }
+    else if (auto *symbol = std::get_if<SymbolString>(&symbol_or_number))
+    {
+        auto const it = symbol_table.find(symbol->symbol);
+        if (it == symbol_table.end())
+        {
+            g_logger << "Symbol not found in symbol table\n";
+            return ResultType::failure(err_invalid_input);
+        }
+        return ResultType::success(it->second);
+    }
+    else // EmptyString
+    {
+        return ResultType::success(std::nullopt);
+    }
+}
+
+Result<std::optional<NativeInt>, Error>
+ExpressionParser::try_parse_expression()
+{
+    auto const symbol_or_number = next_symbol_or_number();
+    
 }
 
 Result<std::variant<NativeInt, LiteralConstant, FutureReference>, Error>
 ExpressionParser::parse_A_part()
 {
     using ResultType = Result<std::variant<NativeInt, LiteralConstant, FutureReference>, Error>;
+    
     auto const literal_constant_result = try_parse_literal_constant();
     if (!literal_constant_result)
         return ResultType::failure(err_invalid_input);
+
     std::optional<LiteralConstant> const literal_constant = literal_constant_result;
     if (literal_constant)
-    {
         return ResultType::success(*literal_constant);
-    }
 
-    auto const future_reference_result = try_parse_future_reference();
+    std::optional<FutureReference> const future_reference = try_parse_future_reference();
+    if (future_reference)
+        return ResultType::success(*future_reference);
     
+    auto const expression_result = try_parse_expression();  
+    if (!expression_result)
+        return ResultType::failure(err_invalid_input);
 
-    parse_expression();    
+    std::optional<NativeInt> const expression = expression_result;
+    if (expression)
+        return ResultType::success(*expression);
+
+    return ResultType::success(0);
 }
 
-Result<NativeByte, Error>
+Result<ValidatedRegisterIndex, Error>
 ExpressionParser::parse_index_part()
 {
     if (!cursor.check<false, true>(','))
-        return Result<NativeByte, Error>::success(0);
+        return Result<ValidatedRegisterIndex, Error>::success(0);
     
     auto const expression_result = parse_expression();
     if (!expression_result)
-        return Result<NativeByte, Error>::failure(err_invalid_input);
+        return Result<ValidatedRegisterIndex, Error>::failure(err_invalid_input);
     NativeInt const expression = expression_result;
 
-    auto const index_result = mix_int_to_mix_byte(expression);
-    if (!index_result)
-        return Result<NativeByte, Error>::failure(err_invalid_input);
-    NativeByte const index = index_result;
-
-    return Result<NativeByte, Error>::success(index);
+    auto const index = ValidatedRegisterIndex::constructor(expression);
+    if (!index)
+        return Result<ValidatedRegisterIndex, Error>::failure(err_invalid_input);
+    return Result<ValidatedRegisterIndex, Error>::success(*index);
 }
 
-Result<std::optional<NativeByte>, Error>
+Result<std::optional<ValidatedByte>, Error>
 ExpressionParser::parse_F_part()
 {
     if (!cursor.check<false, true>('('))
-        return Result<std::optional<NativeByte>, Error>::success(std::nullopt);
+        return Result<std::optional<ValidatedByte>, Error>::success(std::nullopt);
 
     auto const expression_result = parse_expression();
     if (!expression_result)
-        return Result<std::optional<NativeByte>, Error>::failure(err_invalid_input);
+        return Result<std::optional<ValidatedByte>, Error>::failure(err_invalid_input);
     NativeInt const expression = expression_result;
     
-    auto const F_part_result = mix_int_to_mix_byte(expression);
-    if (!F_part_result)
-        return Result<std::optional<NativeByte>, Error>::failure(err_invalid_input);
+    auto const F_part = ValidatedByte::constructor(expression);
+    if (!F_part)
+        return Result<std::optional<ValidatedByte>, Error>::failure(err_invalid_input);
 
     if (!cursor.check<false, true>(')'))
     {
         g_logger << "Missing right bracket of F-part\n";
-        return Result<std::optional<NativeByte>, Error>::failure(err_invalid_input);
+        return Result<std::optional<ValidatedByte>, Error>::failure(err_invalid_input);
     }
 
-    NativeByte const F_part = F_part_result;
-    return Result<std::optional<NativeByte>, Error>::success(F_part);
+    return Result<std::optional<ValidatedByte>, Error>::success(*F_part);
 }
 
 Result<NativeInt, Error>

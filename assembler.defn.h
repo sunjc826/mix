@@ -104,16 +104,6 @@ struct Cursor
     }
 };
 
-struct FutureReference
-{
-    std::string_view symbol;
-};
-
-struct LiteralConstant
-{
-    NativeInt value;
-};
-
 struct SymbolString
 {
     std::string_view symbol;
@@ -126,23 +116,55 @@ struct NumberString
 
 struct EmptyString {};
 
+struct FutureReference
+{
+    SymbolString symbol;
+};
+
+struct LiteralConstant
+{
+    NativeInt value;
+};
+
+template <typename ValueT>
+using SymbolTable = std::unordered_map<std::string, ValueT, string_hash, std::equal_to<void>>;
+using ResolvedSymbolTable = SymbolTable<NativeInt>;
+using UnresolvedSymbolTable = SymbolTable<void *>;
+
 struct ExpressionParser
 {
     Cursor &cursor;
-    std::unordered_map<std::string, NativeInt> const &symbol_table;
-    ExpressionParser(Cursor &cursor, std::unordered_map<std::string, NativeInt> const &symbol_table)
-        : cursor(cursor), symbol_table(symbol_table)
+    ResolvedSymbolTable const &symbol_table;
+    UnresolvedSymbolTable const &unresolved_symbols;
+    ExpressionParser(Cursor &cursor, ResolvedSymbolTable const &symbol_table, UnresolvedSymbolTable const &unresolved_symbols)
+        : cursor(cursor), symbol_table(symbol_table), unresolved_symbols(unresolved_symbols)
     {}
 
     std::variant<SymbolString, NumberString, EmptyString>
     next_symbol_or_number();
 
-    Result<NativeInt, Error>
-    parse_atomic_expression();
+    // An atomic expression is defined as one of
+    // (1) number
+    // (2) defined symbol
+    // (3) asterisk
+    // `try_...` refers to the possibility of having no atomic expression, 
+    // in that case, std::nullopt is the result.
+    Result<std::optional<NativeInt>, Error>
+    try_parse_atomic_expression();
 
-    Result<NativeInt, Error>
-    parse_expression();
+    // An <expression> is defined as one of
+    // (1) <atomic expression>
+    // (2) <atomic expression> <binary op> <expression>
+    // where <binary op> is one of
+    // +, -, *, /, //, :
+    // There are no associativity rules and the expression is evaluated from left to right.
+    Result<std::optional<NativeInt>, Error>
+    try_parse_expression();
 
+    // A <literal constant> is defined as
+    // = <W value length -lt 10> =
+    // where <W value length -lt 10> is defined as
+    // a <W value> whose length is less than 10.
     Result<std::optional<LiteralConstant>, Error>
     try_parse_literal_constant();
 
@@ -152,10 +174,10 @@ struct ExpressionParser
     Result<std::variant<NativeInt, LiteralConstant, FutureReference>, Error>
     parse_A_part();
 
-    Result<NativeByte, Error>
+    Result<ValidatedRegisterIndex, Error>
     parse_index_part();
 
-    Result<std::optional<NativeByte>, Error>
+    Result<VariantWithDefault_t<ValidatedByte>, Error>
     parse_F_part();
 
     Result<void, Error>

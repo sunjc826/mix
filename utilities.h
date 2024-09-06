@@ -1,8 +1,10 @@
 #pragma once
+#include <iostream>
 #include <memory>
+#include <optional>
 #include <type_traits>
 #include <utility>
-#include <iostream>
+#include <variant>
 
 #define REMOVE_CONST_FROM_PTR(ptr)\
     const_cast<std::remove_const_t<std::remove_reference_t<decltype(*ptr)>> *>(ptr)
@@ -257,4 +259,14 @@ struct DeferredValue
     {
         std::destroy_at<T>(buf);
     }
+};
+
+struct string_hash
+{
+    using hash_type = std::hash<std::string_view>;
+    using is_transparent = void;
+ 
+    std::size_t operator()(const char* str) const        { return hash_type{}(str); }
+    std::size_t operator()(std::string_view str) const   { return hash_type{}(str); }
+    std::size_t operator()(std::string const& str) const { return hash_type{}(str); }
 };

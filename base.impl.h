@@ -2,39 +2,31 @@
 #include <base.h>
 #include <stdexcept>
 
+constexpr
 bool is_mix_byte(NativeInt i)
 {
-    return !(i < 0 || i >= byte_size);
+    return 0 <= i && i < byte_size;
 }
 
-bool is_register_index(NativeInt i)
+constexpr
+bool 
+is_register_index(NativeInt i)
 {
-    return !(i <= 0 || i > 6);
+    return 0 <= i && i <= 6;
 }
 
-bool is_mix_address(NativeInt i)
+constexpr
+bool 
+is_mix_address(NativeInt i)
 {
-    return !(i < 0 || i >= main_memory_size);
-}
-
-Result<NativeByte, Error> mix_int_to_mix_byte(NativeInt i)
-{
-    if (!is_mix_byte(i))
-        return Result<NativeByte, Error>::failure(err_overflow);
-    return Result<NativeByte, Error>::success(static_cast<NativeByte>(i));
-}
-
-Result<NativeByte, Error> mix_int_to_register_index(NativeInt i)
-{
-    if (!is_register_index(i))
-        return Result<NativeByte, Error>::failure(err_out_of_bounds);
-    return Result<NativeByte, Error>::success(static_cast<NativeByte>(i));
+    return 0 <= i && i < main_memory_size;
 }
 
 // Instead of providing a generalized constexpr integral pow function,
 // let's only compute powers up to 11 due to rAX.
 // Higher powers are unnecessary.
-constexpr std::array<NativeInt, bytes_in_extended_word> 
+constexpr 
+std::array<NativeInt, bytes_in_extended_word> 
 pow_lookup_table(NativeByte base)
 {
     std::array<NativeInt, bytes_in_extended_word> lut;
@@ -47,7 +39,8 @@ pow_lookup_table(NativeByte base)
 constexpr auto lut = pow_lookup_table(byte_size);
 
 static __attribute__((always_inline))
-constexpr NativeInt
+constexpr 
+NativeInt
 pow(NativeByte base, size_t exponent)
 {
     return pow_lookup_table(base)[exponent];
@@ -55,7 +48,8 @@ pow(NativeByte base, size_t exponent)
 
 template <size_t exponent>
 static __attribute__((always_inline))
-constexpr NativeInt
+constexpr 
+NativeInt
 pow(NativeByte base)
 {
     static_assert(0 <= exponent && exponent <= 2 * numerical_bytes_in_word);
@@ -63,7 +57,8 @@ pow(NativeByte base)
 }
 
 // TODO: change to use Result datatype instead of throwing exceptions
-void check_address_bounds(NativeInt value)
+void 
+check_address_bounds(NativeInt value)
 {
     if (value < 0)
         throw std::runtime_error("Negative address");
@@ -76,15 +71,22 @@ static_assert(-(lut.back() - 1) >= std::numeric_limits<NativeInt>::min());
 // Every positive MIX integral value must be representable by NativeInt
 static_assert(lut.back() - 1 <= std::numeric_limits<NativeInt>::max());
 
-static __attribute__((always_inline))
-constexpr NativeInt 
+constexpr
+bool 
+is_mix_word(NativeInt i)
+{
+    return -lut[numerical_bytes_in_word] < i && i < lut[numerical_bytes_in_word];
+}
+
+constexpr 
+NativeInt 
 native_sign(Sign sign)
 {
     return sign == s_plus ? 1 : -1; 
 }
 
-static __attribute__((always_inline))
-constexpr Sign
+constexpr 
+Sign
 sign(NativeInt value)
 {
     if (value == 0)
