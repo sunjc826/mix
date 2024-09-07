@@ -75,19 +75,21 @@ constexpr
 bool
 is_mix_word(NativeInt i);
 
-template <typename StorageT, bool (*validator)(NativeInt)>
+template <typename StorageT, bool (*validator)(NativeInt), typename ChildT = void>
 class ValidatedInt
 {
+    using type = std::conditional_t<std::is_void_v<ChildT>, ValidatedInt, ChildT>;
+protected:
     StorageT value;
     ValidatedInt(StorageT value) : value(value) {}
 public: 
     static __attribute__((always_inline))
     constexpr
-    std::optional<ValidatedInt> 
+    std::optional<type> 
     constructor(NativeInt value)
     {
         if (!validator(value)) return std::nullopt;
-        return ValidatedInt(value);
+        return type(value);
     }
 
     StorageT unwrap() const
@@ -104,7 +106,15 @@ public:
 using ValidatedAddress = ValidatedInt<NativeInt, is_mix_address>;
 using ValidatedByte = ValidatedInt<NativeByte, is_mix_byte>;
 using ValidatedRegisterIndex = ValidatedInt<NativeByte, is_register_index>;
-using ValidatedWord = ValidatedInt<NativeInt, is_mix_word>;
+class ValidatedWord : public ValidatedInt<NativeInt, is_mix_word, ValidatedWord>
+{
+public:
+    __attribute__((always_inline))
+    void negate()
+    {
+        value = -value;
+    }
+};
 
 // Instead of providing a generalized constexpr integral pow function,
 // let's only compute powers up to 11 due to rAX.

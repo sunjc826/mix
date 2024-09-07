@@ -61,7 +61,7 @@ struct Cursor
         return true;
     }
 
-    template <bool assert_non_empty, bool consume_if_match, int ctype_predicate(int ch)>
+    template <bool assert_non_empty, bool consume_if_match, int ...ctype_predicates(int ch)>
     bool check()
     {
         if constexpr(!assert_non_empty)
@@ -70,7 +70,7 @@ struct Cursor
                 return false;
         }
 
-        if (!ctype_predicate(front()))
+        if (!(ctype_predicates(front()) | ...))
             return false;
         
         if constexpr(consume_if_match)
@@ -126,9 +126,19 @@ struct LiteralConstant
     NativeInt value;
 };
 
+enum class BinaryOp
+{
+    add,
+    subtract,
+    multiply,
+    divide,
+    double_slash,
+    colon,
+};
+
 template <typename ValueT>
 using SymbolTable = std::unordered_map<std::string, ValueT, string_hash, std::equal_to<void>>;
-using ResolvedSymbolTable = SymbolTable<NativeInt>;
+using ResolvedSymbolTable = SymbolTable<ValidatedWord>;
 using UnresolvedSymbolTable = SymbolTable<void *>;
 
 struct ExpressionParser
@@ -140,16 +150,30 @@ struct ExpressionParser
         : cursor(cursor), symbol_table(symbol_table), unresolved_symbols(unresolved_symbols)
     {}
 
-    std::variant<SymbolString, NumberString, EmptyString>
-    next_symbol_or_number();
+    // Even if the evaluation overflows, the result of all binary operations are still well-defined.
+    // For example, C <- A + B is defined as
+    // `LDA AA; ADD BB; STA CC` where AA, BB, CC are addresses respectively containing the value of A, B, C.
+    // `ADD` is still valid when overflowing.
+    ValidatedWord
+    evaluate(ValidatedWord lhs, BinaryOp op, ValidatedWord rhs);
 
-    // An atomic expression is defined as one of
-    // (1) number
-    // (2) defined symbol
-    // (3) asterisk
+    std::optional<BinaryOp>
+    try_parse_binary_op();
+
+    // A symbol is defined as
+    // a sequence of alphanumeric characters 
+    std::variant<SymbolString, NumberString, EmptyString>
+    try_parse_symbol_or_number();
+
+    // An <atomic expression> is defined as one of
+    // (1) <number>
+    // (2) <defined symbol>
+    // (3) <asterisk>
+    // where a <number> is an unsigned integer literal. (Any sign is defined as part of <expression> instead.)
+    // See <expression> for the value semantics of an atomic expression.
     // `try_...` refers to the possibility of having no atomic expression, 
     // in that case, std::nullopt is the result.
-    Result<std::optional<NativeInt>, Error>
+    Result<std::optional<ValidatedWord>, Error>
     try_parse_atomic_expression();
 
     // An <expression> is defined as one of
@@ -158,7 +182,12 @@ struct ExpressionParser
     // where <binary op> is one of
     // +, -, *, /, //, :
     // There are no associativity rules and the expression is evaluated from left to right.
-    Result<std::optional<NativeInt>, Error>
+    // The evaluation of a binary op is defined using MIX operations. Thus, this implies that
+    // we need to use MIX semantics to evaluate them.
+    // Because all 6 binary operations (+, -, *, /, //, :) begin with `LDA AA` and end with `STA CC`,
+    // to be consistent, we will also think of the value of an atomic expression as `LDA AA; STA AA`.
+    // This implies that the value of an atomic expression must fall within the bounds of a MIX integer.
+    Result<std::optional<ValidatedWord>, Error>
     try_parse_expression();
 
     // A <literal constant> is defined as

@@ -50,17 +50,55 @@ skip_line(std::istream &s)
     s.ignore(std::numeric_limits<size_t>::max(), '\n');
 }
 
+ValidatedWord
+ExpressionParser::evaluate(ValidatedWord lhs, BinaryOp op, ValidatedWord rhs)
+{
+
+}
+
+std::optional<BinaryOp>
+ExpressionParser::try_parse_binary_op()
+{
+    if (cursor.empty())
+        return std::nullopt;
+
+    std::optional<BinaryOp> op;
+    switch (cursor.front())
+    {
+    case '+':
+        op = BinaryOp::add; cursor.advance();
+        break;
+    case '-':
+        op = BinaryOp::subtract; cursor.advance();
+        break;
+    case '*':
+        op = BinaryOp::multiply; cursor.advance();
+        break;
+    case '/':
+        op = BinaryOp::divide; cursor.advance();
+        if (cursor.check<false, true>('/'))
+        {
+            op = BinaryOp::double_slash; cursor.advance();
+        }
+        break;
+    case ':':
+        op = BinaryOp::colon; cursor.advance();
+        break;
+    }
+    return op;
+}
+
 std::variant<SymbolString, NumberString, EmptyString>
-ExpressionParser::next_symbol_or_number()
+ExpressionParser::try_parse_symbol_or_number()
 {
     char const *begin = cursor.save_str_begin();
-    while (!cursor.check<false, true, std::isalnum>())
+    while (!cursor.check<false, true, std::isdigit, std::isupper>())
         ;
     std::string_view const sv = cursor.saved_str_end(begin);
     if (sv.empty())
         return EmptyString{};
     
-    if (std::find_if(sv.begin(), sv.end(), [](char ch){ return std::isalpha(ch); }) != sv.end())
+    if (std::find_if(sv.begin(), sv.end(), [](char ch){ return std::isupper(ch); }) != sv.end())
         return SymbolString{sv};
     
     return NumberString{sv};
@@ -95,7 +133,7 @@ ExpressionParser::try_parse_future_reference()
 {
     Cursor const saved_cursor = cursor;
     
-    auto const symbol_or_number = next_symbol_or_number();
+    auto const symbol_or_number = try_parse_symbol_or_number();
     
     if (auto *symbol = std::get_if<SymbolString>(&symbol_or_number))
     {
@@ -108,19 +146,23 @@ ExpressionParser::try_parse_future_reference()
     }
 }
 
-Result<std::optional<NativeInt>, Error>
+Result<std::optional<ValidatedWord>, Error>
 ExpressionParser::try_parse_atomic_expression()
 {
-    using ResultType = Result<std::optional<NativeInt>, Error>;
-    auto const symbol_or_number = next_symbol_or_number();
+    using ResultType = Result<std::optional<ValidatedWord>, Error>;
+    auto const symbol_or_number = try_parse_symbol_or_number();
     if (auto *number = std::get_if<NumberString>(&symbol_or_number))
     {
         auto const it = std::find_if_not(number->number.begin(), number->number.end(), [](char ch){return ch == '0';});
         if (it == number->number.end())
-            return Result<std::optional<NativeInt>, Error>::success(0);
-        NativeInt const value = std::strtol(it, NULL, 10);
-        // The MIXAL specification does not require the size of `value` to be within the bounds of a mix integer.
-        return ResultType::success(value);
+            return ResultType::success(0);
+        std::optional<ValidatedWord> const value = ValidatedWord::constructor(std::strtol(it, NULL, 10));
+        if (!value)
+        {
+            g_logger << "Integer literal does not fit in a MIX word\n";
+            return ResultType::failure(err_overflow);
+        }
+        return ResultType::success(*value);
     }
     else if (auto *symbol = std::get_if<SymbolString>(&symbol_or_number))
     {
@@ -138,11 +180,39 @@ ExpressionParser::try_parse_atomic_expression()
     }
 }
 
-Result<std::optional<NativeInt>, Error>
+Result<std::optional<ValidatedWord>, Error>
 ExpressionParser::try_parse_expression()
 {
-    auto const symbol_or_number = next_symbol_or_number();
+    using ResultType = Result<std::optional<ValidatedWord>, Error>;
     
+    auto const atomic_expression_result = try_parse_atomic_expression();
+    if (!atomic_expression_result)
+        return ResultType::failure(err_invalid_input);
+
+    std::optional<ValidatedWord> const atomic_expression = atomic_expression_result;
+    if (!atomic_expression)
+        return ResultType::success(std::nullopt);
+
+    ValidatedWord value = *atomic_expression;
+
+    while (true)
+    {
+        std::optional<BinaryOp> const binary_op = try_parse_binary_op();
+        if (!binary_op)
+            break;
+        
+        auto const atomic_expression_result = try_parse_atomic_expression();
+        if (!atomic_expression_result)
+            return ResultType::failure(err_invalid_input);
+
+        std::optional<ValidatedWord> const atomic_expression = atomic_expression_result;
+        if (!atomic_expression)
+            return ResultType::failure(err_invalid_input);
+
+        value = evaluate(value, *binary_op, *atomic_expression);
+    }
+    
+    return ResultType::success(value);
 }
 
 Result<std::variant<NativeInt, LiteralConstant, FutureReference>, Error>
@@ -179,12 +249,12 @@ ExpressionParser::parse_index_part()
     if (!cursor.check<false, true>(','))
         return Result<ValidatedRegisterIndex, Error>::success(0);
     
-    auto const expression_result = parse_expression();
+    auto const expression_result = try_parse_expression();
     if (!expression_result)
         return Result<ValidatedRegisterIndex, Error>::failure(err_invalid_input);
     NativeInt const expression = expression_result;
 
-    auto const index = ValidatedRegisterIndex::constructor(expression);
+    std::optional<ValidatedRegisterIndex> const index = ValidatedRegisterIndex::constructor(expression);
     if (!index)
         return Result<ValidatedRegisterIndex, Error>::failure(err_invalid_input);
     return Result<ValidatedRegisterIndex, Error>::success(*index);
@@ -196,12 +266,12 @@ ExpressionParser::parse_F_part()
     if (!cursor.check<false, true>('('))
         return Result<std::optional<ValidatedByte>, Error>::success(std::nullopt);
 
-    auto const expression_result = parse_expression();
+    auto const expression_result = try_parse_expression();
     if (!expression_result)
         return Result<std::optional<ValidatedByte>, Error>::failure(err_invalid_input);
     NativeInt const expression = expression_result;
     
-    auto const F_part = ValidatedByte::constructor(expression);
+    std::optional<ValidatedByte> const F_part = ValidatedByte::constructor(expression);
     if (!F_part)
         return Result<std::optional<ValidatedByte>, Error>::failure(err_invalid_input);
 
@@ -228,7 +298,7 @@ ExpressionParser::parse_W_value()
     reg.store(word);
     do
     {
-        auto const expression_result = parse_expression();
+        auto const expression_result = try_parse_expression();
         if (!expression_result)
             return Result<NativeInt, Error>::failure(err_invalid_input);
         NativeInt const expression = expression_result;

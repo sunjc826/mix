@@ -3,7 +3,8 @@
 #include <stdexcept>
 
 constexpr
-bool is_mix_byte(NativeInt i)
+bool 
+is_mix_byte(NativeInt i)
 {
     return 0 <= i && i < byte_size;
 }
