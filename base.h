@@ -37,6 +37,8 @@ constexpr size_t numerical_bytes_in_word = bytes_in_word - 1;
 // extended word is stored by rAX
 constexpr size_t bytes_in_extended_word = 2 * numerical_bytes_in_word + 1;
 
+constexpr size_t numerical_bytes_in_extended_word = bytes_in_extended_word - 1;
+
 // The configured size of a MIX byte must be greater or equal to minimum_byte_size
 static_assert(byte_size >= minimum_byte_size);
 
@@ -85,11 +87,11 @@ protected:
 public: 
     static __attribute__((always_inline))
     constexpr
-    std::optional<type> 
+    Result<type, void> 
     constructor(NativeInt value)
     {
-        if (!validator(value)) return std::nullopt;
-        return type(value);
+        if (!validator(value)) return Result<type, void>::failure();
+        return Result<type, void>::success(type(static_cast<StorageT>(value)));
     }
 
     StorageT unwrap() const
@@ -121,7 +123,7 @@ public:
 // Higher powers are unnecessary.
 static __attribute__((always_inline))
 constexpr
-std::array<NativeInt, 2 * numerical_bytes_in_word + 1> 
+std::array<NativeInt, numerical_bytes_in_extended_word + 1> 
 pow_lookup_table(NativeByte base);
 
 static __attribute__((always_inline))
@@ -175,6 +177,9 @@ struct ByteConversionResult
 
 template <size_t size>
 ByteConversionResult<size> as_bytes(NativeInt value);
+
+inline
+std::array<Byte, bytes_in_word> as_bytes(ValidatedWord word);
 
 struct FieldSpec
 {

@@ -37,14 +37,19 @@ struct Cursor
         return partial_line_segment.empty();
     }
 
+    size_t length()
+    {
+        return partial_line_segment.size();
+    }
+
     __attribute__((always_inline))
     char front()
     {
         return partial_line_segment.front();
     }
 
-    template <bool assert_non_empty, bool consume_if_match>
-    bool check(char ch)
+    template <bool assert_non_empty, bool consume_if_match, bool consume_if_not_match>
+    bool check_impl(char ch)
     {
         if constexpr(!assert_non_empty)
         {
@@ -53,12 +58,33 @@ struct Cursor
         }
 
         if (front() != ch)
+        {
+            if constexpr (consume_if_not_match)
+                advance();    
             return false;
+        }
+        else
+        {
+            if constexpr (consume_if_match)
+                advance();
+        }
         
         if constexpr(consume_if_match)
             advance();
 
         return true;
+    }
+
+    template <bool assert_non_empty, bool consume_if_match>
+    bool check(char ch)
+    {
+        return check_impl<assert_non_empty, consume_if_match, false>(ch);
+    }
+
+    template <bool assert_non_empty, bool consume_if_not_match>
+    bool check_no_match(char ch)
+    {
+        return check_impl<assert_non_empty, false, consume_if_not_match>(ch);
     }
 
     template <bool assert_non_empty, bool consume_if_match, int ...ctype_predicates(int ch)>
@@ -86,9 +112,16 @@ struct Cursor
         column_number++;
     }
 
-    ptrdiff_t extent_of_parsing() const
+    void advance_by(size_t n)
     {
-        return partial_line_segment.begin() - full_line_segment.begin();
+        partial_line_segment.remove_prefix(n);
+        column_number += n;
+    }
+
+    void advance_until(char ch)
+    {
+        while (!empty() && check_no_match<true, true>(ch))
+            ;
     }
 
     __attribute__((always_inline))
@@ -126,6 +159,13 @@ struct LiteralConstant
     NativeInt value;
 };
 
+struct AddressIndexField
+{
+    std::variant<NativeInt, LiteralConstant, FutureReference> A;
+    ValidatedRegisterIndex I;
+    std::optional<ValidatedByte> F;
+};
+
 enum class BinaryOp
 {
     add,
@@ -141,20 +181,18 @@ using SymbolTable = std::unordered_map<std::string, ValueT, string_hash, std::eq
 using ResolvedSymbolTable = SymbolTable<ValidatedWord>;
 using UnresolvedSymbolTable = SymbolTable<void *>;
 
-struct ExpressionParser
+class ExpressionParser
 {
     Cursor &cursor;
     ResolvedSymbolTable const &symbol_table;
-    UnresolvedSymbolTable const &unresolved_symbols;
-    ExpressionParser(Cursor &cursor, ResolvedSymbolTable const &symbol_table, UnresolvedSymbolTable const &unresolved_symbols)
-        : cursor(cursor), symbol_table(symbol_table), unresolved_symbols(unresolved_symbols)
-    {}
+    UnresolvedSymbolTable const &unresolved_symbols;    
 
     // Even if the evaluation overflows, the result of all binary operations are still well-defined.
     // For example, C <- A + B is defined as
     // `LDA AA; ADD BB; STA CC` where AA, BB, CC are addresses respectively containing the value of A, B, C.
     // `ADD` is still valid when overflowing.
-    ValidatedWord
+    static 
+    Result<ValidatedWord, Error>
     evaluate(ValidatedWord lhs, BinaryOp op, ValidatedWord rhs);
 
     std::optional<BinaryOp>
@@ -191,8 +229,8 @@ struct ExpressionParser
     try_parse_expression();
 
     // A <literal constant> is defined as
-    // = <W value length -lt 10> =
-    // where <W value length -lt 10> is defined as
+    // = <W value; length \lt 10> =
+    // where <W value; length \lt 10> is defined as
     // a <W value> whose length is less than 10.
     Result<std::optional<LiteralConstant>, Error>
     try_parse_literal_constant();
@@ -204,15 +242,20 @@ struct ExpressionParser
     parse_A_part();
 
     Result<ValidatedRegisterIndex, Error>
-    parse_index_part();
+    parse_I_part();
 
-    Result<VariantWithDefault_t<ValidatedByte>, Error>
+    Result<std::optional<ValidatedByte>, Error>
     parse_F_part();
 
-    Result<void, Error>
-    parse_instruction_address();
+public:
+    ExpressionParser(Cursor &cursor, ResolvedSymbolTable const &symbol_table, UnresolvedSymbolTable const &unresolved_symbols)
+        : cursor(cursor), symbol_table(symbol_table), unresolved_symbols(unresolved_symbols)
+    {}
 
-    Result<NativeInt, Error>
+    Result<AddressIndexField, Error>
+    parse_AIF();
+
+    Result<ValidatedWord, Error>
     parse_W_value();
 };
 
@@ -221,6 +264,10 @@ class Assembler
     std::istream &assembly;
     std::ostream &binary;
     std::string line;
+    Cursor cursor;
+    NativeInt location_counter;
+    ResolvedSymbolTable symbol_table;
+    UnresolvedSymbolTable unresolved_symbols;
     
     void assemble_equ(std::string_view loc, std::string_view address);
     void assemble_orig(std::string_view loc, std::string_view address);

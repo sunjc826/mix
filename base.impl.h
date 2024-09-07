@@ -27,10 +27,10 @@ is_mix_address(NativeInt i)
 // let's only compute powers up to 11 due to rAX.
 // Higher powers are unnecessary.
 constexpr 
-std::array<NativeInt, bytes_in_extended_word> 
+std::array<NativeInt, numerical_bytes_in_extended_word + 1> 
 pow_lookup_table(NativeByte base)
 {
-    std::array<NativeInt, bytes_in_extended_word> lut;
+    std::array<NativeInt, numerical_bytes_in_extended_word + 1> lut;
     lut[0] = 1;
     for (size_t i = 1; i < lut.size(); i++)
         lut[i] = lut[i - 1] * base;
@@ -153,6 +153,32 @@ ByteConversionResult<size> as_bytes(NativeInt value)
     result.bytes[0].sign = sign;
     
     result.overflow = value > 0;
+
+    return result;
+}
+
+std::array<Byte, bytes_in_word> as_bytes(ValidatedWord word)
+{
+    NativeInt value = word;
+    Sign sign;
+    if (value < 0)
+    {
+        sign = s_minus;
+        value = -value;
+    }
+    else
+    {
+        sign = s_plus;
+    }
+
+    std::array<Byte, bytes_in_word> result;
+    for (size_t s = result.size(); s --> 1;)
+    {
+        result[s].byte = value % byte_size;
+        value /= byte_size;
+    }
+
+    result[0].sign = sign;
 
     return result;
 }

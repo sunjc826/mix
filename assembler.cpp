@@ -50,10 +50,43 @@ skip_line(std::istream &s)
     s.ignore(std::numeric_limits<size_t>::max(), '\n');
 }
 
-ValidatedWord
+Result<ValidatedWord, Error>
 ExpressionParser::evaluate(ValidatedWord lhs, BinaryOp op, ValidatedWord rhs)
 {
-
+    using ResultType = Result<ValidatedWord, Error>;
+    NativeInt result;
+    switch (op)
+    {
+    case BinaryOp::add:
+        // TODO: Add warning on overflow.
+        result = (lhs + rhs) % lut[numerical_bytes_in_word];
+        break;
+    case BinaryOp::subtract:
+        result = (lhs + rhs) % lut[numerical_bytes_in_word];
+        break;
+    case BinaryOp::multiply:
+        result = (lhs * rhs) % lut[numerical_bytes_in_word];
+        break;
+    case BinaryOp::divide:
+        result = lhs / rhs;
+        // In MIX, overflow of the quotient is undefined behavior.
+        // This implementation decides to give an error.
+        if (std::abs(result) >= lut[numerical_bytes_in_word])
+            return ResultType::failure(err_overflow);
+        break;
+    case BinaryOp::double_slash:
+        result = (lhs * lut[numerical_bytes_in_word]) / rhs;
+        if (std::abs(result) >= lut[numerical_bytes_in_word])
+            return ResultType::failure(err_overflow);
+        break;
+    case BinaryOp::colon:
+        // The : operation is defined as
+        // LDA AA; MUL =8=; SLAX 5; ADD BB; STA CC
+        // Both `MUL =8=; SLAX 5` and `ADD BB` have the effect of modulo `lut[numerical_bytes_in_word]`
+        result = (lhs * 8 + rhs) % lut[numerical_bytes_in_word];
+        break;
+    }
+    return ResultType::success(result);
 }
 
 std::optional<BinaryOp>
@@ -77,9 +110,7 @@ ExpressionParser::try_parse_binary_op()
     case '/':
         op = BinaryOp::divide; cursor.advance();
         if (cursor.check<false, true>('/'))
-        {
-            op = BinaryOp::double_slash; cursor.advance();
-        }
+            op = BinaryOp::double_slash;
         break;
     case ':':
         op = BinaryOp::colon; cursor.advance();
@@ -244,7 +275,7 @@ ExpressionParser::parse_A_part()
 }
 
 Result<ValidatedRegisterIndex, Error>
-ExpressionParser::parse_index_part()
+ExpressionParser::parse_I_part()
 {
     if (!cursor.check<false, true>(','))
         return Result<ValidatedRegisterIndex, Error>::success(0);
@@ -254,45 +285,59 @@ ExpressionParser::parse_index_part()
         return Result<ValidatedRegisterIndex, Error>::failure(err_invalid_input);
     NativeInt const expression = expression_result;
 
-    std::optional<ValidatedRegisterIndex> const index = ValidatedRegisterIndex::constructor(expression);
-    if (!index)
+    auto const I_value_result = ValidatedRegisterIndex::constructor(expression);
+    if (!I_value_result)
         return Result<ValidatedRegisterIndex, Error>::failure(err_invalid_input);
-    return Result<ValidatedRegisterIndex, Error>::success(*index);
+    
+    ValidatedRegisterIndex const I_value = I_value_result;
+    return Result<ValidatedRegisterIndex, Error>::success(I_value);
 }
 
 Result<std::optional<ValidatedByte>, Error>
 ExpressionParser::parse_F_part()
 {
+    using ResultType = Result<std::optional<ValidatedByte>, Error>;
     if (!cursor.check<false, true>('('))
-        return Result<std::optional<ValidatedByte>, Error>::success(std::nullopt);
+        return ResultType::success(std::nullopt);
 
     auto const expression_result = try_parse_expression();
     if (!expression_result)
-        return Result<std::optional<ValidatedByte>, Error>::failure(err_invalid_input);
+        return ResultType::failure(err_invalid_input);
     NativeInt const expression = expression_result;
     
-    std::optional<ValidatedByte> const F_part = ValidatedByte::constructor(expression);
-    if (!F_part)
-        return Result<std::optional<ValidatedByte>, Error>::failure(err_invalid_input);
+    auto const F_part_result = ValidatedByte::constructor(expression);
+    if (!F_part_result)
+        return ResultType::failure(err_invalid_input);
 
     if (!cursor.check<false, true>(')'))
     {
         g_logger << "Missing right bracket of F-part\n";
-        return Result<std::optional<ValidatedByte>, Error>::failure(err_invalid_input);
+        return ResultType::failure(err_invalid_input);
     }
 
-    return Result<std::optional<ValidatedByte>, Error>::success(*F_part);
+    return ResultType::success(F_part_result);
 }
 
-Result<NativeInt, Error>
-ExpressionParser::parse_instruction_address()
+Result<AddressIndexField, Error>
+ExpressionParser::parse_AIF()
 {
-
+    using ResultType = Result<AddressIndexField, Error>;
+    auto const A_part_result = parse_A_part();
+    if (!A_part_result)
+        return ResultType::failure(err_invalid_input);
+    auto const I_part_result = parse_I_part();
+    if (!I_part_result)
+        return ResultType::failure(err_invalid_input);
+    auto const F_part_result = parse_F_part();
+    if (!F_part_result)
+        return ResultType::failure(err_invalid_input);
+    return ResultType::success(A_part_result.value(), I_part_result.value(), F_part_result.value());
 }
 
-Result<NativeInt, Error> 
+Result<ValidatedWord, Error> 
 ExpressionParser::parse_W_value()
 {
+    using ResultType = Result<ValidatedWord, Error>;
     Register<true, bytes_in_word> reg;
     Word<OwnershipKind::owns> word;
     reg.store(word);
@@ -300,11 +345,11 @@ ExpressionParser::parse_W_value()
     {
         auto const expression_result = try_parse_expression();
         if (!expression_result)
-            return Result<NativeInt, Error>::failure(err_invalid_input);
+            return ResultType::failure(err_invalid_input);
         NativeInt const expression = expression_result;
         auto const F_part_result = parse_F_part();
         if (!F_part_result)
-            return Result<NativeInt, Error>::failure(err_invalid_input);
+            return ResultType::failure(err_invalid_input);
         std::optional<NativeByte> const F_part = F_part_result;
         
         DeferredValue<SliceMutable> slice;
@@ -313,7 +358,7 @@ ExpressionParser::parse_W_value()
             FieldSpec const field_spec = FieldSpec::from_byte(*F_part);
             bool const is_overflow = reg.load<false>(expression);
             if (is_overflow)
-                return Result<NativeInt, Error>::failure(err_overflow);
+                return ResultType::failure(err_overflow);
             slice.construct(word, field_spec);
         }
         else
@@ -322,33 +367,42 @@ ExpressionParser::parse_W_value()
     }
     while(!cursor.check<false, true>(','));
 
-    NativeInt const W_value = word.native_value();
-    return Result<NativeInt, Error>::success(W_value);
+    auto const W_value_result = ValidatedWord::constructor(word.native_value());
+    if (!W_value_result)
+    {
+        g_logger << "Unexpected overflow of W_value\n";
+        return ResultType::failure(err_internal_logic);
+    }
+
+    ValidatedWord const W_value = W_value_result;
+    return ResultType::success(W_value);
 }
 
 Result<bool, Error>
 Assembler::assemble_line()
 {
+    using ResultType = Result<bool, Error>;
     if (assembly.eof())
-        return Result<bool, Error>::success(true);
+        return ResultType::success(true);
     
     if (!std::getline(assembly, line))
-        return Result<bool, Error>::failure(err_io);
+        return ResultType::failure(err_io);
     
-    std::string_view line_view(line);
-    if (line_view.empty())
+    cursor.process_next_line(line);
+    
+    if (cursor.empty())
     {
         if (assembly.eof())
-            return Result<bool, Error>::success(true);
+            return ResultType::success(true);
         else
         {
             g_logger << "Invalid MIX assembly: Empty line is not allowed, instead consider beginning with *\n";
-            return Result<bool, Error>::failure(err_invalid_input);
+            return ResultType::failure(err_invalid_input);
         }
     }
 
-    if (line_view.front() == '*')
-        return Result<bool, Error>::success(false);
+    if (cursor.check<true, false>('*'))
+        return ResultType::success(false);
 
     // Now, this line is either an assembler directive or an assembler instruction
     // Both are of the form 
@@ -357,70 +411,124 @@ Assembler::assemble_line()
     // COMMENTS can be empty or otherwise must begin with a space
     std::string_view loc;
     {
-        size_t const pos = line_view.find(' ');
-        if (pos == std::string_view::npos)
+        auto begin = cursor.save_str_begin();
+        cursor.advance_until(' ');
+        if (cursor.empty())
         {
             g_logger << "OP and ADDRESS not found\n";
-            return Result<bool, Error>::failure(err_invalid_input);
+            return ResultType::failure(err_invalid_input);
         }
-        loc = line_view.substr(0, pos);
-        line_view.remove_prefix(pos + 1);
+        loc = cursor.saved_str_end(begin);
+        cursor.advance();
     }
 
     std::string_view op;
     {
-        size_t const pos = line_view.find(' ');
-        if (pos == std::string_view::npos)
+        auto begin = cursor.save_str_begin();
+        cursor.advance_until(' ');
+        if (cursor.empty())
         {
             g_logger << "ADDRESS not found\n";
-            return Result<bool, Error>::failure(err_invalid_input);
+            return ResultType::failure(err_invalid_input);
         }
-        op = line_view.substr(0, pos);
-        line_view.remove_prefix(pos + 1);
+        loc = cursor.saved_str_end(begin);
+        cursor.advance();
     }
 
     std::string_view address;
     {
-        size_t const pos = line_view.find(' ');
-        if (pos == std::string_view::npos)
-        {
-            address = line_view;
-            line_view.remove_prefix(line_view.size());
-        }
-        else
-        {
-            address = line_view.substr(0, pos);
-            line_view.remove_prefix(pos + 1);
-        }
-        std::string_view const address = line_view.substr(); 
-    }
-
-    __attribute__((unused)) std::string_view comments = line_view;
-
-    if (op == "EQU")
-    {
-        // handle_equ(loc, address);
-    }
-    else if (op == "ORIG")
-    {
+        ExpressionParser expression_parser(cursor, symbol_table, unresolved_symbols);
         
+        auto begin = cursor.save_str_begin();
+        cursor.advance_until(' ');
+        address = cursor.saved_str_end(begin);
+        if (!cursor.empty())
+            cursor.advance();
     }
-    else if (op == "CON")
+
+    if (!loc.empty())
     {
+        if (symbol_table.find(loc) != symbol_table.end())
+        {
+            g_logger << "Symbol already exists\n";
+            return ResultType::failure(err_duplicate_symbol);
+        }
+    }
+
+#define EXPRESSION_PARSER() ExpressionParser(cursor, symbol_table, unresolved_symbols)
+    if (op == "EQU") // ADDRESS is W value
+    {
+        auto const W_value_result = EXPRESSION_PARSER().parse_W_value();
+        if (!W_value_result)
+        {
+            return ResultType::failure(err_invalid_input);
+        }
+
+        if (loc.empty())
+        {
+            g_logger << "EQU directive must have an associated symbol\n";
+            return ResultType::failure(err_invalid_input);
+        }
+
+        ValidatedWord const W_value = W_value_result;
+        symbol_table.insert({ std::string(loc), W_value });
+    }
+    else if (op == "ORIG") // ADDRESS is W value
+    {
+        auto const W_value_result = EXPRESSION_PARSER().parse_W_value();
+        if (!W_value_result)
+        {
+            return ResultType::failure(err_invalid_input);
+        }
+
+        ValidatedWord const W_value = W_value_result;
+    }
+    else if (op == "CON") // ADDRESS is W value
+    {
+        auto const W_value_result = EXPRESSION_PARSER().parse_W_value();
+        if (!W_value_result)
+        {
+            return ResultType::failure(err_invalid_input);
+        }
+
+        ValidatedWord const W_value = W_value_result;
+        std::array<Byte, bytes_in_word> const bytes = as_bytes(W_value);
+        binary << static_cast<char>(bytes[0].sign);
+        for (size_t i = 1; i < bytes.size(); i++)
+            binary << static_cast<char>(bytes[i].byte);
+        location_counter++;
+    }
+    else if (op == "ALF") // ADDRESS is 5 characters
+    {
+        if (cursor.length() < 5)
+        {
+            return Result<bool, Error>::failure(err_invalid_input);
+        }
+
+        auto begin = cursor.save_str_begin();
+        cursor.advance_by(5);
+        auto str = cursor.saved_str_end(begin);
 
     }
-    else if (op == "ALF")
+    else if (op == "END") // ADDRESS is W value
     {
+        auto const W_value_result = EXPRESSION_PARSER().parse_W_value();
+        if (!W_value_result)
+        {
+            return ResultType::failure(err_invalid_input);
+        }
 
-    }
-    else if (op == "END")
-    {
-    
+        ValidatedWord const W_value = W_value_result;
     }
     else 
     {
-        
+        auto const AIF_result = EXPRESSION_PARSER().parse_AIF();
+    
     }
+#undef EXPRESSION_PARSER
+    __attribute__((unused)) std::string_view const comments = cursor.partial_line_segment;
+
+    
     
 
     return Result<bool, Error>::success(false);
