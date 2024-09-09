@@ -77,12 +77,18 @@ constexpr
 bool
 is_mix_word(NativeInt i);
 
+static __attribute__((always_inline))
+constexpr
+bool
+is_mix_positive_word(NativeInt i);
+
 template <typename StorageT, bool (*validator)(NativeInt), typename ChildT = void>
 class ValidatedInt
 {
     using type = std::conditional_t<std::is_void_v<ChildT>, ValidatedInt, ChildT>;
 protected:
     StorageT value;
+    constexpr
     ValidatedInt(StorageT value) : value(value) {}
 public: 
     static __attribute__((always_inline))
@@ -94,11 +100,13 @@ public:
         return Result<type, void>::success(type(static_cast<StorageT>(value)));
     }
 
+    constexpr
     StorageT unwrap() const
     {
         return value;    
     }
 
+    constexpr
     operator StorageT() const
     {
         return value;
@@ -117,6 +125,8 @@ public:
         value = -value;
     }
 };
+
+using ValidatedPositiveWord = ValidatedInt<NativeInt, is_mix_positive_word>;
 
 // Instead of providing a generalized constexpr integral pow function,
 // let's only compute powers up to 11 due to rAX.

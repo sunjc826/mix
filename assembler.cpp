@@ -378,6 +378,67 @@ ExpressionParser::parse_W_value()
     return ResultType::success(W_value);
 }
 
+void
+Assembler::add_symbol(std::string_view loc)
+{
+    symbol_table.insert({ std::string(loc), location_counter });
+}
+
+void
+Assembler::add_symbol(std::string_view loc, ValidatedWord value)
+{
+    symbol_table.insert({ std::string(loc), value });
+}
+
+Result<void, Error>
+Assembler::assemble_equ(std::string_view loc, ValidatedWord value)
+{
+    using ResultType = Result<void, Error>;
+    if (loc.empty())
+    {
+        g_logger << "EQU directive must have an associated symbol\n";
+        return ResultType::failure(err_invalid_input);
+    }
+
+    add_symbol(loc, value);
+    return ResultType::success();
+}
+
+Result<void, Error>
+Assembler::assemble_orig(std::string_view loc, ValidatedWord value)
+{
+    if (!loc.empty())
+        add_symbol(loc);
+    
+    
+}
+
+Result<void, Error>
+Assembler::assemble_con(std::string_view loc, ValidatedWord value)
+{
+    if (!loc.empty())
+        add_symbol(loc);
+   
+    std::array<Byte, bytes_in_word> const bytes = as_bytes(value);
+    binary << static_cast<char>(bytes[0].sign);
+    for (size_t i = 1; i < bytes.size(); i++)
+        binary << static_cast<char>(bytes[i].byte);
+    location_counter++;
+}
+
+Result<void, Error>
+Assembler::assemble_alf(std::string_view loc, std::string_view str)
+{
+    if (!loc.empty())
+        add_symbol(loc);
+}
+
+void
+Assembler::assemble_end(std::string_view loc, ValidatedWord value)
+{
+
+}
+
 Result<bool, Error>
 Assembler::assemble_line()
 {
@@ -463,15 +524,9 @@ Assembler::assemble_line()
         {
             return ResultType::failure(err_invalid_input);
         }
-
-        if (loc.empty())
-        {
-            g_logger << "EQU directive must have an associated symbol\n";
-            return ResultType::failure(err_invalid_input);
-        }
-
+       
         ValidatedWord const W_value = W_value_result;
-        symbol_table.insert({ std::string(loc), W_value });
+        assemble_equ(loc, W_value);
     }
     else if (op == "ORIG") // ADDRESS is W value
     {
@@ -482,6 +537,7 @@ Assembler::assemble_line()
         }
 
         ValidatedWord const W_value = W_value_result;
+        assemble_orig(loc, W_value);
     }
     else if (op == "CON") // ADDRESS is W value
     {
@@ -492,11 +548,7 @@ Assembler::assemble_line()
         }
 
         ValidatedWord const W_value = W_value_result;
-        std::array<Byte, bytes_in_word> const bytes = as_bytes(W_value);
-        binary << static_cast<char>(bytes[0].sign);
-        for (size_t i = 1; i < bytes.size(); i++)
-            binary << static_cast<char>(bytes[i].byte);
-        location_counter++;
+        assemble_con(loc, W_value);
     }
     else if (op == "ALF") // ADDRESS is 5 characters
     {
@@ -508,7 +560,7 @@ Assembler::assemble_line()
         auto begin = cursor.save_str_begin();
         cursor.advance_by(5);
         auto str = cursor.saved_str_end(begin);
-
+        assemble_alf(loc, str);
     }
     else if (op == "END") // ADDRESS is W value
     {
@@ -519,17 +571,21 @@ Assembler::assemble_line()
         }
 
         ValidatedWord const W_value = W_value_result;
+        assemble_end(loc, W_value);
     }
     else 
     {
         auto const AIF_result = EXPRESSION_PARSER().parse_AIF();
-    
+        if (!AIF_result)
+        {
+            return ResultType::failure(err_invalid_input);
+        }
+
+        AddressIndexField const AIF = AIF_result;
+        assemble_instruction(loc, AIF);
     }
 #undef EXPRESSION_PARSER
     __attribute__((unused)) std::string_view const comments = cursor.partial_line_segment;
-
-    
-    
 
     return Result<bool, Error>::success(false);
 }

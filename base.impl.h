@@ -79,6 +79,13 @@ is_mix_word(NativeInt i)
     return -lut[numerical_bytes_in_word] < i && i < lut[numerical_bytes_in_word];
 }
 
+constexpr
+bool
+is_mix_positive_word(NativeInt i)
+{
+    return 0 < i && i < lut[numerical_bytes_in_word];
+}
+
 constexpr 
 NativeInt 
 native_sign(Sign sign)

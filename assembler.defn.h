@@ -265,15 +265,38 @@ class Assembler
     std::ostream &binary;
     std::string line;
     Cursor cursor;
-    NativeInt location_counter;
+    ValidatedWord location_counter;
     ResolvedSymbolTable symbol_table;
     UnresolvedSymbolTable unresolved_symbols;
+    static constexpr ValidatedWord zero = ValidatedWord::constructor(0);
+    static constexpr ValidatedPositiveWord one = ValidatedPositiveWord::constructor(1);
+
+    Result<void, Error>
+    advance_location_counter(ValidatedPositiveWord by = one);
+
+    void 
+    add_symbol(std::string_view loc);
+
+    void 
+    add_symbol(std::string_view loc, ValidatedWord value);
     
-    void assemble_equ(std::string_view loc, std::string_view address);
-    void assemble_orig(std::string_view loc, std::string_view address);
-    void assemble_con(std::string_view loc, std::string_view address);
-    void assemble_alf(std::string_view loc, std::string_view address);
-    void assemble_end(std::string_view loc, std::string_view address);
+    Result<void, Error>
+    assemble_equ(std::string_view loc, ValidatedWord value);
+    
+    Result<void, Error>
+    assemble_orig(std::string_view loc, ValidatedWord value);
+    
+    Result<void, Error>
+    assemble_con(std::string_view loc, ValidatedWord value);
+    
+    Result<void, Error>
+    assemble_alf(std::string_view loc, std::string_view str);
+    
+    Result<void, Error>
+    assemble_end(std::string_view loc, ValidatedWord value);
+    
+    Result<void, Error>
+    assemble_instruction(std::string_view loc, AddressIndexField AIF);
     // Value:
     // - true if end of input
     // - false otherwise
@@ -281,7 +304,7 @@ class Assembler
     assemble_line();
 public:
     Assembler(std::istream &assembly, std::ostream &binary)
-        : assembly(assembly), binary(binary)
+        : assembly(assembly), binary(binary), location_counter(zero)
     {}
     
     void
