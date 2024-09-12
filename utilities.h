@@ -44,7 +44,7 @@ public:
     {
         Result result;
         result.is_success_ = true;
-        std::construct_at(&result.value_, std::forward<Ts...>(value)...);
+        std::construct_at(&result.value_, std::forward<Ts>(value)...);
         return result;
     }
 
@@ -54,7 +54,7 @@ public:
     {
         Result result;
         result.is_success_ = false;
-        std::construct_at(&result.error_, std::forward<Ts...>(error)...);
+        std::construct_at(&result.error_, std::forward<Ts>(error)...);
         return result;
     }
 
@@ -144,7 +144,7 @@ public:
     {
         Result result;
         result.is_success_ = false;
-        std::construct_at(&result.error_, std::forward<Ts...>(error)...);
+        std::construct_at(&result.error_, std::forward<Ts>(error)...);
         return result;
     }
 
@@ -200,7 +200,7 @@ public:
     {
         Result result;
         result.is_success_ = true;
-        std::construct_at(&result.value_, std::forward<Ts...>(value)...);
+        std::construct_at(&result.value_, std::forward<Ts>(value)...);
         return result;
     }
 
@@ -308,7 +308,7 @@ struct DeferredValue
     template <typename ...Args>
     void construct(Args &&...args)
     {
-        std::construct_at<T>(buf, std::forward<Args...>(args)...);
+        std::construct_at<T>(buf, std::forward<Args>(args)...);
     }
 
     operator T const &() const

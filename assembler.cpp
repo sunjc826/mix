@@ -1,3 +1,4 @@
+#include "assembler.defn.h"
 #include <algorithm>
 #include <assembler.h>
 #include <register.h>
@@ -313,7 +314,7 @@ ExpressionParser::parse_F_part()
         return ResultType::failure(err_invalid_input);
     }
 
-    return ResultType::success(F_part_result);
+    return ResultType::success(F_part_result.value());
 }
 
 Result<AddressIndexField, Error>
