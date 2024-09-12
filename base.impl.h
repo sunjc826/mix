@@ -2,6 +2,23 @@
 #include <base.h>
 #include <stdexcept>
 
+template <NativeInt value>
+constexpr
+bool
+is_exact_value(NativeInt i)
+{
+    return value == i;
+}
+
+template <NativeInt lower_bound, NativeInt upper_bound>
+constexpr
+bool
+is_in_closed_interval(NativeInt i)
+{
+    static_assert(lower_bound <= upper_bound);
+    return lower_bound <= i && i < upper_bound;
+}
+
 constexpr
 bool 
 is_mix_byte(NativeInt i)

@@ -181,6 +181,14 @@ using SymbolTable = std::unordered_map<std::string, ValueT, string_hash, std::eq
 using ResolvedSymbolTable = SymbolTable<ValidatedWord>;
 using UnresolvedSymbolTable = SymbolTable<void *>;
 
+static constexpr ValidatedLiteral<0> zero = ValidatedLiteral<0>::constructor(0);
+static constexpr ValidatedLiteral<1> one = ValidatedLiteral<1>::constructor(1);
+static constexpr ValidatedLiteral<2> two = ValidatedLiteral<2>::constructor(2);
+static constexpr ValidatedLiteral<3> three = ValidatedLiteral<3>::constructor(3);
+static constexpr ValidatedLiteral<4> four = ValidatedLiteral<4>::constructor(4);
+static constexpr ValidatedLiteral<5> five = ValidatedLiteral<5>::constructor(5);
+static constexpr ValidatedLiteral<6> six = ValidatedLiteral<6>::constructor(6);
+
 class ExpressionParser
 {
     Cursor &cursor;
@@ -268,8 +276,6 @@ class Assembler
     ValidatedWord location_counter;
     ResolvedSymbolTable symbol_table;
     UnresolvedSymbolTable unresolved_symbols;
-    static constexpr ValidatedWord zero = ValidatedWord::constructor(0);
-    static constexpr ValidatedPositiveWord one = ValidatedPositiveWord::constructor(1);
 
     Result<void, Error>
     advance_location_counter(ValidatedPositiveWord by = one);

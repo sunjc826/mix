@@ -1,5 +1,3 @@
-#include "assembler.defn.h"
-#include "base.h"
 #include <algorithm>
 #include <assembler.h>
 #include <register.h>
@@ -86,7 +84,7 @@ ExpressionParser::evaluate(ValidatedWord lhs, BinaryOp op, ValidatedWord rhs)
         result = (lhs * 8 + rhs) % lut[numerical_bytes_in_word];
         break;
     }
-    return ResultType::success(result);
+    return ResultType::success(ValidatedWord::constructor(result));
 }
 
 std::optional<BinaryOp>
@@ -186,7 +184,7 @@ ExpressionParser::try_parse_atomic_expression()
     {
         auto const it = std::find_if_not(number->number.begin(), number->number.end(), [](char ch){return ch == '0';});
         if (it == number->number.end())
-            return ResultType::success(0);
+            return ResultType::success(zero);
         std::optional<ValidatedWord> const value = ValidatedWord::constructor(std::strtol(it, NULL, 10));
         if (!value)
         {
@@ -278,7 +276,7 @@ Result<ValidatedRegisterIndex, Error>
 ExpressionParser::parse_I_part()
 {
     if (!cursor.check<false, true>(','))
-        return Result<ValidatedRegisterIndex, Error>::success(0);
+        return Result<ValidatedRegisterIndex, Error>::success(zero);
     
     auto const expression_result = try_parse_expression();
     if (!expression_result)

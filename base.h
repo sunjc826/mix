@@ -57,6 +57,18 @@ static_assert(representable_values_v<NativeByte> >= byte_size);
 // any representable integral value.
 using NativeInt = long long;
 
+template <NativeInt value>
+static __attribute__((always_inline))
+constexpr
+bool
+is_exact_value(NativeInt i);
+
+template <NativeInt lower_bound, NativeInt upper_bound>
+static __attribute__((always_inline))
+constexpr
+bool
+is_in_closed_interval(NativeInt i);
+
 static __attribute__((always_inline))
 constexpr
 bool
@@ -82,15 +94,108 @@ constexpr
 bool
 is_mix_positive_word(NativeInt i);
 
+using Validator = bool (*)(NativeInt);
+
+template <bool (*validator)(NativeInt)>
+using ValidatorConstant = std::integral_constant<bool (*)(NativeInt), validator>;
+
+
+template <Validator P, Validator Q>
+struct Implies
+{
+    static constexpr bool value = false;
+};
+
+template <Validator P, Validator Q>
+constexpr bool Implies_v = Implies<P, Q>::value;
+
+template <>
+struct Implies<is_exact_value<0>, is_in_closed_interval<0, 6>>
+{
+    static constexpr bool value = true;
+};
+
+template <>
+struct Implies<is_exact_value<1>, is_in_closed_interval<0, 6>>
+{
+    static constexpr bool value = true;
+};
+
+template <>
+struct Implies<is_exact_value<2>, is_in_closed_interval<0, 6>>
+{
+    static constexpr bool value = true;
+};
+
+template <>
+struct Implies<is_exact_value<3>, is_in_closed_interval<0, 6>>
+{
+    static constexpr bool value = true;
+};
+
+template <>
+struct Implies<is_exact_value<4>, is_in_closed_interval<0, 6>>
+{
+    static constexpr bool value = true;
+};
+
+template <>
+struct Implies<is_exact_value<5>, is_in_closed_interval<0, 6>>
+{
+    static constexpr bool value = true;
+};
+
+template <>
+struct Implies<is_exact_value<6>, is_in_closed_interval<0, 6>>
+{
+    static constexpr bool value = true;
+};
+
+template <>
+struct Implies<is_in_closed_interval<0, 6>, is_register_index>
+{
+    static constexpr bool value = true;
+};
+
+template <>
+struct Implies<is_register_index, is_mix_byte>
+{
+    static constexpr bool value = true;
+};
+
+template <>
+struct Implies<is_mix_byte, is_mix_address>
+{
+    static constexpr bool value = true;
+};
+
+template <>
+struct Implies<is_mix_address, is_mix_positive_word>
+{
+    static constexpr bool value = true;
+};
+
+template <>
+struct Implies<is_mix_positive_word, is_mix_word>
+{
+    static constexpr bool value = true;
+};
+
 template <typename StorageT, bool (*validator)(NativeInt), typename ChildT = void>
 class ValidatedInt
 {
     using type = std::conditional_t<std::is_void_v<ChildT>, ValidatedInt, ChildT>;
 protected:
-    StorageT value;
+    NativeInt value;
     constexpr
     ValidatedInt(StorageT value) : value(value) {}
-public: 
+public:
+    template <typename OtherStorageT, bool (*other_validator)(NativeInt), typename EnableIfT = std::enable_if<Implies_v<other_validator, validator>>>
+    constexpr
+    ValidatedInt(ValidatedInt<OtherStorageT, other_validator> other, EnableIfT * = 0)
+        : value(value)
+    {}
+
     static __attribute__((always_inline))
     constexpr
     Result<type, void> 
@@ -113,6 +218,8 @@ public:
     }
 };
 
+template <NativeInt value>
+using ValidatedLiteral = ValidatedInt<NativeInt, is_exact_value<value>>;
 using ValidatedAddress = ValidatedInt<NativeInt, is_mix_address>;
 using ValidatedByte = ValidatedInt<NativeByte, is_mix_byte>;
 using ValidatedRegisterIndex = ValidatedInt<NativeByte, is_register_index>;
