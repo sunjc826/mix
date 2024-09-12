@@ -193,7 +193,7 @@ public:
     template <typename OtherStorageT, bool (*other_validator)(NativeInt), typename EnableIfT = std::enable_if<Implies_v<other_validator, validator>>>
     constexpr
     ValidatedInt(ValidatedInt<OtherStorageT, other_validator> other, EnableIfT * = 0)
-        : value(value)
+        : value(other.raw_native_int())
     {}
 
     static __attribute__((always_inline))
@@ -205,12 +205,20 @@ public:
         return Result<type, void>::success(type(static_cast<StorageT>(value)));
     }
 
+    __attribute__((always_inline))
+    NativeInt raw_native_int() const
+    {
+        return value;
+    }
+
+    __attribute__((always_inline))
     constexpr
     StorageT unwrap() const
     {
         return value;    
     }
 
+    __attribute__((always_inline))
     constexpr
     operator StorageT() const
     {
