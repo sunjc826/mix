@@ -1,4 +1,3 @@
-#include "assembler.defn.h"
 #include <algorithm>
 #include <assembler.h>
 #include <register.h>
