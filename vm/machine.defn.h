@@ -1,8 +1,8 @@
 #pragma once
-#include <base.h>
-#include <machine.decl.h>
-#include <register.defn.h>
-#include <instruction.defn.h>
+#include <base/base.h>
+#include <vm/machine.decl.h>
+#include <vm/register.defn.h>
+#include <vm/instruction.defn.h>
 
 constexpr std::array character_set
 {

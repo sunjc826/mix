@@ -1,7 +1,6 @@
 #pragma once
 #include <config.h>
 #include <error.h>
-#include <utilities.h>
 
 #include <algorithm>
 #include <cmath>

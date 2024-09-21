@@ -1,6 +1,6 @@
 #pragma once
 #include <base/base.h>
-#include <error.h>
+#include <base/error.h>
 
 #include <istream>
 #include <string_view>
@@ -188,13 +188,13 @@ using SymbolTable = std::unordered_map<std::string, ValueT, string_hash, std::eq
 using ResolvedSymbolTable = SymbolTable<ValidatedWord>;
 using UnresolvedSymbolTable = SymbolTable<void *>;
 
-constexpr ValidatedLiteral<0> zero = ValidatedLiteral<0>::constructor(0);
-constexpr ValidatedLiteral<1> one = ValidatedLiteral<1>::constructor(1);
-constexpr ValidatedLiteral<2> two = ValidatedLiteral<2>::constructor(2);
-constexpr ValidatedLiteral<3> three = ValidatedLiteral<3>::constructor(3);
-constexpr ValidatedLiteral<4> four = ValidatedLiteral<4>::constructor(4);
-constexpr ValidatedLiteral<5> five = ValidatedLiteral<5>::constructor(5);
-constexpr ValidatedLiteral<6> six = ValidatedLiteral<6>::constructor(6);
+constexpr ValidatedLiteral<0> zero = ValidatedLiteral<0>::constructor(0).value();
+constexpr ValidatedLiteral<1> one = ValidatedLiteral<1>::constructor(1).value();
+constexpr ValidatedLiteral<2> two = ValidatedLiteral<2>::constructor(2).value();
+constexpr ValidatedLiteral<3> three = ValidatedLiteral<3>::constructor(3).value();
+constexpr ValidatedLiteral<4> four = ValidatedLiteral<4>::constructor(4).value();
+constexpr ValidatedLiteral<5> five = ValidatedLiteral<5>::constructor(5).value();
+constexpr ValidatedLiteral<6> six = ValidatedLiteral<6>::constructor(6).value();
 
 class ExpressionParser
 {

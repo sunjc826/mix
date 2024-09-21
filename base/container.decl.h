@@ -1,6 +1,73 @@
 #pragma once
 #include <base/types.h>
 
+#define REMOVE_CONST_FROM_PTR(ptr)\
+    const_cast<std::remove_const_t<std::remove_reference_t<decltype(*ptr)>> *>(ptr)
+
+template <bool is_view, typename T>
+struct ConstIfView
+{
+    using type = T;
+};
+
+template <typename T>
+struct ConstIfView<true, T>
+{
+    using type = T const;
+};
+
+template <bool is_view, typename T>
+using ConstIfView_t = typename ConstIfView<is_view, T>::type;
+
+// Similar to optional but doesn't check for existence
+// Assumes object exists when used.
+// Assumes object is constructed exactly once.
+template <typename T>
+struct DeferredValue
+{
+    char buf[sizeof(T)];
+
+    DeferredValue() = default;
+    DeferredValue(DeferredValue<T> const &) = delete;
+    DeferredValue(DeferredValue<T> &&) = delete;
+
+    template <typename ...Args>
+    void construct(Args &&...args)
+    {
+        std::construct_at<T>(buf, std::forward<Args>(args)...);
+    }
+
+    operator T const &() const
+    {
+        return *reinterpret_cast<T const *>(buf);
+    }
+
+    operator T &()
+    {
+        return *reinterpret_cast<T *>(buf);
+    }
+
+    operator T &&() &&
+    {
+        return std::move(*reinterpret_cast<T *>(buf));
+    }
+
+    ~DeferredValue()
+    {
+        std::destroy_at<T>(buf);
+    }
+};
+
+struct string_hash
+{
+    using hash_type = std::hash<std::string_view>;
+    using is_transparent = void;
+ 
+    std::size_t operator()(const char* str) const        { return hash_type{}(str); }
+    std::size_t operator()(std::string_view str) const   { return hash_type{}(str); }
+    std::size_t operator()(std::string const& str) const { return hash_type{}(str); }
+};
+
 struct FieldSpec
 {
     NativeByte L, R;
@@ -170,32 +237,75 @@ struct Slice
         : sp(slice.sp), spec(slice.spec)
     {}
 
-    Slice(Word<OwnershipKind::owns> &word)
-        : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
-    {}
+    // Slice(Word<OwnershipKind::owns> &word)
+    //     : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
+    // {}
 
-    Slice(Word<OwnershipKind::mutable_view> const &word)
-        : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
-    {}
+    // Slice(Word<OwnershipKind::mutable_view> const &word)
+    //     : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
+    // {}
 
-    template <typename EnableIfT = std::enable_if<!is_view, Word<OwnershipKind::view> const &>>
-    Slice(EnableIfT::type word)
-        : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
-    {}
+    // template <typename EnableIfT = std::enable_if<!is_view, Word<OwnershipKind::view> const &>>
+    // Slice(EnableIfT::type word)
+    //     : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
+    // {}
 
-    Slice(Word<OwnershipKind::owns> &word, FieldSpec spec)
+    // Slice(Word<OwnershipKind::owns> &word, FieldSpec spec)
+    //     : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container).subspan(spec.L, spec.length())), spec(spec)
+    // {}
+
+    // Slice(Word<OwnershipKind::mutable_view> const &word, FieldSpec spec)
+    //     : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container).subspan(spec.L, spec.length())), spec(spec)
+    // {}
+
+    // template <typename EnableIfT = std::enable_if<!is_view, Word<OwnershipKind::view> const &>>
+    // Slice(EnableIfT::type word, FieldSpec spec)
+    //     : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container).subspan(spec.L, spec.length())), spec(spec)
+    // {}
+
+    template <size_t size>
+    Slice(IntegralContainer<OwnershipKind::owns, true, size> &i)
+        : sp(std::span<PossiblyConstByte, size>(i.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
+    {
+        static_assert(size < 8);
+    }
+
+    template <size_t size>
+    Slice(IntegralContainer<OwnershipKind::mutable_view, true, size> const &i)
+        : sp(std::span<PossiblyConstByte, size>(i.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
+    {
+        static_assert(size < 8);
+    }
+
+    template <size_t size>
+    Slice(IntegralContainer<OwnershipKind::owns, true, size> &word, FieldSpec spec)
         : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container).subspan(spec.L, spec.length())), spec(spec)
-    {}
+    {
+        static_assert(size < 8);
+    }
 
-    Slice(Word<OwnershipKind::mutable_view> const &word, FieldSpec spec)
-        : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container).subspan(spec.L, spec.length())), spec(spec)
-    {}
+    template <size_t size>
+    Slice(IntegralContainer<OwnershipKind::mutable_view, true, size> const &i, FieldSpec spec)
+        : sp(std::span<PossiblyConstByte, size>(i.container).subspan(spec.L, spec.length())), spec(spec)
+    {
+        static_assert(size < 8);
+    }
 
-    template <typename EnableIfT = std::enable_if<!is_view, Word<OwnershipKind::view> const &>>
-    Slice(EnableIfT::type word, FieldSpec spec)
-        : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container).subspan(spec.L, spec.length())), spec(spec)
-    {}
+    template <size_t size, typename EnableIfT = std::enable_if<!is_view>>
+    Slice(IntegralContainer<OwnershipKind::view, true, size> const &word, FieldSpec spec, EnableIfT * = 0)
+        : sp(std::span<PossiblyConstByte, size>(word.container).subspan(spec.L, spec.length())), spec(spec)
+    {
+        static_assert(size < 8);
+    }
 
+    template <size_t size, typename EnableIfT = std::enable_if<!is_view>>
+    Slice(IntegralContainer<OwnershipKind::view, true, size> const &i, EnableIfT * = 0)
+        : sp(std::span<PossiblyConstByte, size>(i.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
+    {
+        static_assert(size < 8);
+    }
+
+   
     bool is_signed() const
     {
         return spec.L == 0;

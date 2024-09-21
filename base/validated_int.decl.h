@@ -1,6 +1,6 @@
 #pragma once
 #include <base/types.h>
-#include <base/validator.decl.h>
+#include <base/validator.h>
 
 template <typename StorageT, bool (*validator)(NativeInt), typename ChildT = void>
 class ValidatedInt;

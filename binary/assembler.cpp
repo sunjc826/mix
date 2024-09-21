@@ -1,8 +1,8 @@
-#include <algorithm>
-#include <assembler.h>
-#include <register.h>
-#include <error.h>
+#include <base/error.h>
+#include <binary/assembler.h>
+#include <vm/register.h>
 
+#include <algorithm>
 #include <array>
 #include <limits>
 #include <string_view>
@@ -84,7 +84,10 @@ ExpressionParser::evaluate(ValidatedWord lhs, BinaryOp op, ValidatedWord rhs)
         result = (lhs * 8 + rhs) % lut[numerical_bytes_in_word];
         break;
     }
-    return ResultType::success(ValidatedWord::constructor(result));
+    auto eval_result = ValidatedWord::constructor(result);
+    if (!eval_result)
+        return ResultType::failure(err_overflow);
+    return ResultType::success(eval_result.value());
 }
 
 std::optional<BinaryOp>
@@ -185,13 +188,13 @@ ExpressionParser::try_parse_atomic_expression()
         auto const it = std::find_if_not(number->number.begin(), number->number.end(), [](char ch){return ch == '0';});
         if (it == number->number.end())
             return ResultType::success(zero);
-        std::optional<ValidatedWord> const value = ValidatedWord::constructor(std::strtol(it, NULL, 10));
-        if (!value)
+        auto const conversion_result = ValidatedWord::constructor(std::strtol(it, NULL, 10));
+        if (!conversion_result)
         {
             g_logger << "Integer literal does not fit in a MIX word\n";
             return ResultType::failure(err_overflow);
         }
-        return ResultType::success(*value);
+        return ResultType::success(conversion_result.value());
     }
     else if (auto *symbol = std::get_if<SymbolString>(&symbol_or_number))
     {
@@ -218,7 +221,7 @@ ExpressionParser::try_parse_expression()
     if (!atomic_expression_result)
         return ResultType::failure(err_invalid_input);
 
-    std::optional<ValidatedWord> const atomic_expression = atomic_expression_result;
+    std::optional<ValidatedWord> const atomic_expression = atomic_expression_result.value();
     if (!atomic_expression)
         return ResultType::success(std::nullopt);
 
@@ -234,11 +237,14 @@ ExpressionParser::try_parse_expression()
         if (!atomic_expression_result)
             return ResultType::failure(err_invalid_input);
 
-        std::optional<ValidatedWord> const atomic_expression = atomic_expression_result;
+        std::optional<ValidatedWord> const atomic_expression = atomic_expression_result.value();
         if (!atomic_expression)
             return ResultType::failure(err_invalid_input);
 
-        value = evaluate(value, *binary_op, *atomic_expression);
+        auto const eval_result = evaluate(value, *binary_op, *atomic_expression);
+        if (!eval_result)
+            return ResultType::failure(err_invalid_input);
+        value = eval_result.value();
     }
     
     return ResultType::success(value);
@@ -253,7 +259,7 @@ ExpressionParser::parse_A_part()
     if (!literal_constant_result)
         return ResultType::failure(err_invalid_input);
 
-    std::optional<LiteralConstant> const literal_constant = literal_constant_result;
+    std::optional<LiteralConstant> const literal_constant = literal_constant_result.value();
     if (literal_constant)
         return ResultType::success(*literal_constant);
 
@@ -287,7 +293,7 @@ ExpressionParser::parse_I_part()
     if (!I_value_result)
         return Result<ValidatedRegisterIndex, Error>::failure(err_invalid_input);
     
-    ValidatedRegisterIndex const I_value = I_value_result;
+    ValidatedRegisterIndex const I_value = I_value_result.value();
     return Result<ValidatedRegisterIndex, Error>::success(I_value);
 }
 
@@ -372,7 +378,7 @@ ExpressionParser::parse_W_value()
         return ResultType::failure(err_internal_logic);
     }
 
-    ValidatedWord const W_value = W_value_result;
+    ValidatedWord const W_value = W_value_result.value();
     return ResultType::success(W_value);
 }
 
@@ -414,6 +420,7 @@ Assembler::assemble_orig(std::string_view loc, ValidatedWord value)
 Result<void, Error>
 Assembler::assemble_con(std::string_view loc, ValidatedWord value)
 {
+    using ReturnType = Result<void, Error>;
     if (!loc.empty())
         add_symbol(loc);
    
@@ -421,7 +428,11 @@ Assembler::assemble_con(std::string_view loc, ValidatedWord value)
     binary << static_cast<char>(bytes[0].sign);
     for (size_t i = 1; i < bytes.size(); i++)
         binary << static_cast<char>(bytes[i].byte);
-    location_counter++;
+    auto increment_result = location_counter.increment();
+    if (!increment_result)
+        return ReturnType::failure(err_overflow);
+    ValidatedWord incremented_value = increment_result.value();
+    location_counter = incremented_value;
 }
 
 Result<void, Error>
@@ -523,7 +534,7 @@ Assembler::assemble_line()
             return ResultType::failure(err_invalid_input);
         }
        
-        ValidatedWord const W_value = W_value_result;
+        ValidatedWord const W_value = W_value_result.value();
         assemble_equ(loc, W_value);
     }
     else if (op == "ORIG") // ADDRESS is W value
@@ -534,7 +545,7 @@ Assembler::assemble_line()
             return ResultType::failure(err_invalid_input);
         }
 
-        ValidatedWord const W_value = W_value_result;
+        ValidatedWord const W_value = W_value_result.value();
         assemble_orig(loc, W_value);
     }
     else if (op == "CON") // ADDRESS is W value
@@ -545,7 +556,7 @@ Assembler::assemble_line()
             return ResultType::failure(err_invalid_input);
         }
 
-        ValidatedWord const W_value = W_value_result;
+        ValidatedWord const W_value = W_value_result.value();
         assemble_con(loc, W_value);
     }
     else if (op == "ALF") // ADDRESS is 5 characters
@@ -568,7 +579,7 @@ Assembler::assemble_line()
             return ResultType::failure(err_invalid_input);
         }
 
-        ValidatedWord const W_value = W_value_result;
+        ValidatedWord const W_value = W_value_result.value();
         assemble_end(loc, W_value);
     }
     else 
@@ -579,7 +590,7 @@ Assembler::assemble_line()
             return ResultType::failure(err_invalid_input);
         }
 
-        AddressIndexField const AIF = AIF_result;
+        AddressIndexField const AIF = AIF_result.value();
         assemble_instruction(loc, AIF);
     }
 #undef EXPRESSION_PARSER

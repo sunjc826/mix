@@ -1,4 +1,5 @@
-#include <base.h>
+#pragma once
+#include <base/base.h>
 #include <stdexcept>
 
 struct BinaryMagic 

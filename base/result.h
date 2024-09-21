@@ -1,28 +1,5 @@
 #pragma once
-#include <iostream>
 #include <memory>
-#include <optional>
-#include <type_traits>
-#include <utility>
-#include <variant>
-
-#define REMOVE_CONST_FROM_PTR(ptr)\
-    const_cast<std::remove_const_t<std::remove_reference_t<decltype(*ptr)>> *>(ptr)
-
-template <bool is_view, typename T>
-struct ConstIfView
-{
-    using type = T;
-};
-
-template <typename T>
-struct ConstIfView<true, T>
-{
-    using type = T const;
-};
-
-template <bool is_view, typename T>
-using ConstIfView_t = typename ConstIfView<is_view, T>::type;
 
 template <typename Value, typename Error = void>
 class Result
@@ -95,6 +72,8 @@ public:
         return REMOVE_CONST_FROM_PTR(this)->error();
     }
 
+    // Implicit conversions of this form are probably a really bad idea
+    /* 
     constexpr
     operator Value &()
     {
@@ -106,6 +85,7 @@ public:
     {
         return value();
     }
+    */
 
     constexpr
     ~Result()
@@ -236,6 +216,8 @@ public:
         return REMOVE_CONST_FROM_PTR(this)->value();
     }
 
+    // Implicit conversions of this form are probably a really bad idea
+    /*
     constexpr
     operator Value &()
     {
@@ -247,6 +229,7 @@ public:
     {
         return value();
     }
+    */
 
     constexpr
     ~Result()
@@ -289,55 +272,4 @@ public:
     {
         return is_success();
     }
-};
-
-inline std::ostream &g_logger = std::cout;
-
-// Similar to optional but doesn't check for existence
-// Assumes object exists when used.
-// Assumes object is constructed exactly once.
-template <typename T>
-struct DeferredValue
-{
-    char buf[sizeof(T)];
-
-    DeferredValue() = default;
-    DeferredValue(DeferredValue<T> const &) = delete;
-    DeferredValue(DeferredValue<T> &&) = delete;
-
-    template <typename ...Args>
-    void construct(Args &&...args)
-    {
-        std::construct_at<T>(buf, std::forward<Args>(args)...);
-    }
-
-    operator T const &() const
-    {
-        return *reinterpret_cast<T const *>(buf);
-    }
-
-    operator T &()
-    {
-        return *reinterpret_cast<T *>(buf);
-    }
-
-    operator T &&() &&
-    {
-        return std::move(*reinterpret_cast<T *>(buf));
-    }
-
-    ~DeferredValue()
-    {
-        std::destroy_at<T>(buf);
-    }
-};
-
-struct string_hash
-{
-    using hash_type = std::hash<std::string_view>;
-    using is_transparent = void;
- 
-    std::size_t operator()(const char* str) const        { return hash_type{}(str); }
-    std::size_t operator()(std::string_view str) const   { return hash_type{}(str); }
-    std::size_t operator()(std::string const& str) const { return hash_type{}(str); }
 };

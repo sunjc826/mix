@@ -1,5 +1,5 @@
 #pragma once
-#include <base.h>
+#include <cstddef>
 struct TypeErasedRegister;
 template <size_t size>
 struct RegisterWithoutSign;

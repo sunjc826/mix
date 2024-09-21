@@ -11,8 +11,6 @@ check_address_bounds(NativeInt value)
         throw std::runtime_error("Overflowing address");
 }
 
-
-
 constexpr 
 NativeInt 
 native_sign(Sign sign)

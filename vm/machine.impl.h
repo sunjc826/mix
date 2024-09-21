@@ -1,6 +1,6 @@
 #pragma once
-#include "base.h"
-#include <machine.defn.h>
+#include <base/base.h>
+#include <vm/machine.defn.h>
 
 __attribute__((always_inline)) inline
 void Machine::update_current_instruction()

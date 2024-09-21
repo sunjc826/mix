@@ -1,7 +1,7 @@
-#include <base.h>
-#include <instruction.h>
-#include <register.h>
-#include <machine.h>
+#include <base/base.h>
+#include <vm/instruction.h>
+#include <vm/register.h>
+#include <vm/machine.h>
 
 Instruction::Instruction(Machine &m)
     : Word(std::span<Byte, bytes_in_word>(m.memory.begin() + m.pc, bytes_in_word)), m(m)

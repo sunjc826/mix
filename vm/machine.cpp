@@ -1,10 +1,10 @@
-#include <base.h>
-#include <instruction.h>
-#include <machine.decl.h>
-#include <register.decl.h>
+#include <base/base.h>
+#include <vm/instruction.h>
+#include <vm/machine.h>
+#include <vm/register.decl.h>
+
 #include <compare>
 #include <iostream>
-#include <machine.h>
 #include <stdexcept>
 
 void Machine::do_nop()

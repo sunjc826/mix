@@ -1,5 +1,5 @@
 #pragma once
-#include <register.defn.h>
+#include <vm/register.defn.h>
 
 #include <stdexcept>
 

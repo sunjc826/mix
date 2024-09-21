@@ -1,7 +1,7 @@
 #pragma once
-#include <base.h>
-#include <instruction.decl.h>
-#include <machine.decl.h>
+#include <base/base.h>
+#include <vm/instruction.decl.h>
+#include <vm/machine.decl.h>
 
 struct Instruction : public Word<OwnershipKind::owns>
 {

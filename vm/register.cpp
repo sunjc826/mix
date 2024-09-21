@@ -1,4 +1,5 @@
-#include <register.h>
+#include <base/base.h>
+#include <vm/register.h>
 
 Sign ZeroRegister::sign() const
 {
