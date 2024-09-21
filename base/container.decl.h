@@ -1,8 +1,9 @@
 #pragma once
 #include <base/types.h>
 
-#define REMOVE_CONST_FROM_PTR(ptr)\
-    const_cast<std::remove_const_t<std::remove_reference_t<decltype(*ptr)>> *>(ptr)
+namespace mix
+{
+
 
 template <bool is_view, typename T>
 struct ConstIfView
@@ -343,3 +344,4 @@ using SliceMutable = Slice<false>;
 
 using SliceView = Slice<true>;
 
+}

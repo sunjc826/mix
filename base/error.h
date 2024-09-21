@@ -1,4 +1,6 @@
 #pragma once
+namespace mix
+{
 // A list of application-level error codes
 // All error codes are to be placed here instead of being scoped to a particular function/class/namespace
 enum Error
@@ -11,3 +13,5 @@ enum Error
     err_duplicate_symbol,
     err_missing_symbol,
 };
+
+}

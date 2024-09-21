@@ -1,6 +1,8 @@
 #pragma once
 #include <base/validator.decl.h>
 #include <base/math.h>
+namespace mix
+{
 
 template <NativeInt value>
 constexpr
@@ -52,4 +54,6 @@ bool
 is_mix_positive_word(NativeInt i)
 {
     return 0 < i && i < lut[numerical_bytes_in_word];
+}
+
 }

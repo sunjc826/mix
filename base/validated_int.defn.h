@@ -2,6 +2,8 @@
 #include <base/validated_int.decl.h>
 #include <base/implies/v2.h>
 #include <base/result.h>
+namespace mix
+{
 
 template <typename StorageT, bool (*validator)(NativeInt), typename ChildT>
 class ValidatedInt
@@ -139,3 +141,5 @@ public:
         return transform_unchecked<inplace, [](NativeInt i) { return -i; } >();
     }
 };
+
+}

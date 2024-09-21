@@ -6,6 +6,8 @@
 #include <compare>
 #include <iostream>
 #include <stdexcept>
+namespace mix
+{
 
 void Machine::do_nop()
 {
@@ -286,4 +288,6 @@ void Machine::dispatch_by_op_code()
 void Machine::step()
 {
     jump_table();
+}
+
 }

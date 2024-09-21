@@ -3,6 +3,9 @@
 #include <vm/register.h>
 #include <vm/machine.h>
 
+namespace mix
+{
+
 Instruction::Instruction(Machine &m)
     : Word(std::span<Byte, bytes_in_word>(m.memory.begin() + m.pc, bytes_in_word)), m(m)
 {}
@@ -64,4 +67,6 @@ SliceMutable Instruction::MF() const
 NativeInt Instruction::native_MF() const
 {
     return MF().native_value();
+}
+
 }

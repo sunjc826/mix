@@ -1,55 +1,62 @@
 #pragma once
 #include <base/base.h>
 #include <base/error.h>
+#include <base/character_set.h>
+#include <base/io.h>
+#include <base/string.h>
 
 #include <istream>
 #include <string_view>
 #include <unordered_map>
 #include <variant>
 
+namespace mix
+{
+
 struct BufferedIStream
 {
-    std::istream input;
+    istream input;
 };
 
 struct Cursor
 {
     size_t line_number;
     size_t column_number;
-    std::string_view full_line_segment, partial_line_segment;
+    string_view partial_line_segment;
     
-    void process_next_line(std::string_view new_line)
+    void process_next_line(string_view new_line)
     {
-        full_line_segment = partial_line_segment = new_line;
+        partial_line_segment = new_line;
         line_number++;
         column_number = 0;
     }
 
-    void process_same_line(std::string_view rest_of_line)
+    void process_same_line(string_view rest_of_line)
     {
         column_number += partial_line_segment.size();
-        full_line_segment = partial_line_segment = rest_of_line;
+        partial_line_segment = rest_of_line;
     }
 
-    __attribute__((always_inline))
+    [[gnu::always_inline]]
     bool empty()
     {
         return partial_line_segment.empty();
     }
 
+    [[gnu::always_inline]]
     size_t length()
     {
         return partial_line_segment.size();
     }
 
-    __attribute__((always_inline))
-    char front()
+    [[gnu::always_inline]]
+    NativeByte front()
     {
         return partial_line_segment.front();
     }
 
     template <bool assert_non_empty, bool consume_if_match, bool consume_if_not_match>
-    bool check_impl(char ch)
+    bool check_impl(ValidatedChar ch)
     {
         if constexpr(!assert_non_empty)
         {
@@ -76,18 +83,18 @@ struct Cursor
     }
 
     template <bool assert_non_empty, bool consume_if_match>
-    bool check(char ch)
+    bool check(ValidatedChar ch)
     {
         return check_impl<assert_non_empty, consume_if_match, false>(ch);
     }
 
     template <bool assert_non_empty, bool consume_if_not_match>
-    bool check_no_match(char ch)
+    bool check_no_match(ValidatedChar ch)
     {
         return check_impl<assert_non_empty, false, consume_if_not_match>(ch);
     }
 
-    template <bool assert_non_empty, bool consume_if_match, int ...ctype_predicates(int ch)>
+    template <bool assert_non_empty, bool consume_if_match, bool ...predicates(NativeByte ch)>
     bool check()
     {
         if constexpr(!assert_non_empty)
@@ -96,7 +103,7 @@ struct Cursor
                 return false;
         }
 
-        if (!(ctype_predicates(front()) | ...))
+        if (!(predicates(front()) | ...))
             return false;
         
         if constexpr(consume_if_match)
@@ -118,20 +125,20 @@ struct Cursor
         column_number += n;
     }
 
-    void advance_until(char ch)
+    void advance_until(ValidatedChar ch)
     {
         while (!empty() && check_no_match<true, true>(ch))
             ;
     }
 
     __attribute__((always_inline))
-    char const *save_str_begin()
+    NativeByte const *save_str_begin()
     {
         return partial_line_segment.begin();
     }
 
     __attribute__((always_inline))
-    std::string_view saved_str_end(char const *saved_begin)
+    string_view saved_str_end(NativeByte const *saved_begin)
     {
         return {saved_begin, partial_line_segment.begin()};
     }
@@ -139,12 +146,12 @@ struct Cursor
 
 struct SymbolString
 {
-    std::string_view symbol;
+    string_view symbol;
 };
 
 struct NumberString
 {
-    std::string_view number;
+    string_view number;
 };
 
 struct EmptyString {};
@@ -184,7 +191,7 @@ enum class BinaryOp
 };
 
 template <typename ValueT>
-using SymbolTable = std::unordered_map<std::string, ValueT, string_hash, std::equal_to<void>>;
+using SymbolTable = std::unordered_map<string, ValueT, string_hash, std::equal_to<void>>;
 using ResolvedSymbolTable = SymbolTable<ValidatedWord>;
 using UnresolvedSymbolTable = SymbolTable<void *>;
 
@@ -276,9 +283,9 @@ public:
 
 class Assembler
 {
-    std::istream &assembly;
-    std::ostream &binary;
-    std::string line;
+    istream &assembly;
+    ostream &binary;
+    string line;
     Cursor cursor;
     ValidatedWord location_counter;
     ResolvedSymbolTable symbol_table;
@@ -288,38 +295,40 @@ class Assembler
     advance_location_counter(ValidatedPositiveWord by = one);
 
     void 
-    add_symbol(std::string_view loc);
+    add_symbol(string_view loc);
 
     void 
-    add_symbol(std::string_view loc, ValidatedWord value);
+    add_symbol(string_view loc, ValidatedWord value);
     
     Result<void, Error>
-    assemble_equ(std::string_view loc, ValidatedWord value);
+    assemble_equ(string_view loc, ValidatedWord value);
     
     Result<void, Error>
-    assemble_orig(std::string_view loc, ValidatedWord value);
+    assemble_orig(string_view loc, ValidatedWord value);
     
     Result<void, Error>
-    assemble_con(std::string_view loc, ValidatedWord value);
+    assemble_con(string_view loc, ValidatedWord value);
     
     Result<void, Error>
-    assemble_alf(std::string_view loc, std::string_view str);
+    assemble_alf(string_view loc, string_view str);
     
     Result<void, Error>
-    assemble_end(std::string_view loc, ValidatedWord value);
+    assemble_end(string_view loc, ValidatedWord value);
     
     Result<void, Error>
-    assemble_instruction(std::string_view loc, AddressIndexField AIF);
+    assemble_instruction(string_view loc, AddressIndexField AIF);
     // Value:
     // - true if end of input
     // - false otherwise
     Result<bool, Error>
     assemble_line();
 public:
-    Assembler(std::istream &assembly, std::ostream &binary)
+    Assembler(istream &assembly, ostream &binary)
         : assembly(assembly), binary(binary), location_counter(zero)
     {}
     
     void
     assemble();
 };
+
+}

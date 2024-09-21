@@ -1,5 +1,7 @@
 #pragma once
 #include <base/types.decl.h>
+namespace mix
+{
 
 // TODO: change to use Result datatype instead of throwing exceptions
 void 
@@ -53,4 +55,6 @@ ByteConversionResult<size> as_bytes(NativeInt value)
     result.overflow = value > 0;
 
     return result;
+}
+
 }

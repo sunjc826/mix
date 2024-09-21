@@ -3,66 +3,8 @@
 #include <vm/machine.decl.h>
 #include <vm/register.defn.h>
 #include <vm/instruction.defn.h>
-
-constexpr std::array character_set
+namespace mix
 {
-    " ",
-    "A",
-    "B",
-    "C",
-    "D",
-    "E",
-    "F",
-    "G",
-    "H",
-    "I",
-    "Δ",
-    "J",
-    "K",
-    "L",
-    "M",
-    "N",
-    "O",
-    "P",
-    "Q",
-    "R",
-    "Σ",
-    "Π",
-    "S",
-    "T",
-    "U",
-    "V",
-    "W",
-    "X",
-    "Y",
-    "Z",
-    "0",
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
-    ".",
-    ",",
-    "(",
-    ")",
-    "+",
-    "-",
-    "*",
-    "/",
-    "=",
-    "$",
-    "<",
-    ">",
-    "@",
-    ";",
-    ":",
-    "'",
-};
 
 #define OP_LIST(IT, IT_FIELD, IT_REGISTER, IT_FIELD_REGISTER) \
     IT(nop, 0, do_nop) \
@@ -268,3 +210,5 @@ public:
     Machine() = default;
     void step();
 };
+
+}

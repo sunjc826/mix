@@ -2,6 +2,8 @@
 #include <vm/register.defn.h>
 
 #include <stdexcept>
+namespace mix
+{
 
 template <size_t size>
 IntMutable<false, size> RegisterWithoutSign<size>::unsigned_value() 
@@ -51,7 +53,7 @@ Sign Register<is_signed, size>::sign() const
 template <bool is_signed, size_t size>
 NativeInt Register<is_signed, size>::native_sign() const
 {
-    return ::native_sign(sign());
+    return mix::native_sign(sign());
 }
 
 template <bool is_signed, size_t size>
@@ -185,4 +187,6 @@ void Register<is_signed, size>::shift_right_circular(NativeInt shift_by)
     std::reverse(reg.begin() + numerical_first_idx, reg.end());
     std::reverse(reg.begin(), reg.begin() + shift_by);
     std::reverse(reg.begin() + shift_by, reg.end());
+}
+
 }

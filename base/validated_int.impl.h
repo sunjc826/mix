@@ -1,5 +1,8 @@
 #pragma once
 #include <base/validated_int.defn.h>
+namespace mix
+{
+    
 std::array<Byte, bytes_in_word> as_bytes(ValidatedWord word)
 {
     NativeInt value = word;
@@ -24,4 +27,6 @@ std::array<Byte, bytes_in_word> as_bytes(ValidatedWord word)
     result[0].sign = sign;
 
     return result;
+}
+
 }

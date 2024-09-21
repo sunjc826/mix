@@ -1,4 +1,8 @@
+#include "base/string.h"
+#include "base/types.decl.h"
+#include "base/validated_int.defn.h"
 #include <base/error.h>
+#include <base/io.h>
 #include <binary/assembler.h>
 #include <vm/register.h>
 
@@ -7,6 +11,8 @@
 #include <limits>
 #include <string_view>
 #include <variant>
+namespace mix
+{
 
 template <bool is_peek, typename T>
 __attribute__((always_inline))
@@ -110,7 +116,7 @@ ExpressionParser::try_parse_binary_op()
         break;
     case '/':
         op = BinaryOp::divide; cursor.advance();
-        if (cursor.check<false, true>('/'))
+        if (cursor.check<false, true>(ascii_to_mix_char('/')))
             op = BinaryOp::double_slash;
         break;
     case ':':
@@ -123,10 +129,10 @@ ExpressionParser::try_parse_binary_op()
 std::variant<SymbolString, NumberString, EmptyString>
 ExpressionParser::try_parse_symbol_or_number()
 {
-    char const *begin = cursor.save_str_begin();
-    while (!cursor.check<false, true, std::isdigit, std::isupper>())
+    NativeByte const *begin = cursor.save_str_begin();
+    while (!cursor.check<false, true, isalnum>())
         ;
-    std::string_view const sv = cursor.saved_str_end(begin);
+    string_view const sv = cursor.saved_str_end(begin);
     if (sv.empty())
         return EmptyString{};
     
@@ -139,7 +145,7 @@ ExpressionParser::try_parse_symbol_or_number()
 Result<std::optional<LiteralConstant>, Error>
 ExpressionParser::try_parse_literal_constant()
 {
-    if (!cursor.check<false, true>('='))
+    if (!cursor.check<false, true>(ascii_to_mix_char('=')))
         return Result<std::optional<LiteralConstant>, Error>::success(std::nullopt);
     size_t const saved_position = cursor.column_number;
     auto const W_value_result = parse_W_value();
@@ -150,7 +156,7 @@ ExpressionParser::try_parse_literal_constant()
         return Result<std::optional<LiteralConstant>, Error>::failure(err_invalid_input);
     }
 
-    if (!cursor.check<false, true>('='))
+    if (!cursor.check<false, true>(ascii_to_mix_char('=')))
     {
         g_logger << "Expected closing =\n";
         return Result<std::optional<LiteralConstant>, Error>::failure(err_invalid_input);
@@ -188,7 +194,7 @@ ExpressionParser::try_parse_atomic_expression()
         auto const it = std::find_if_not(number->number.begin(), number->number.end(), [](char ch){return ch == '0';});
         if (it == number->number.end())
             return ResultType::success(zero);
-        auto const conversion_result = ValidatedWord::constructor(std::strtol(it, NULL, 10));
+        Result<ValidatedWord, Error> const conversion_result = strtoword(it);
         if (!conversion_result)
         {
             g_logger << "Integer literal does not fit in a MIX word\n";
@@ -281,7 +287,7 @@ ExpressionParser::parse_A_part()
 Result<ValidatedRegisterIndex, Error>
 ExpressionParser::parse_I_part()
 {
-    if (!cursor.check<false, true>(','))
+    if (!cursor.check<false, true>(ascii_to_mix_char(',')))
         return Result<ValidatedRegisterIndex, Error>::success(zero);
     
     auto const expression_result = try_parse_expression();
@@ -301,7 +307,7 @@ Result<std::optional<ValidatedByte>, Error>
 ExpressionParser::parse_F_part()
 {
     using ResultType = Result<std::optional<ValidatedByte>, Error>;
-    if (!cursor.check<false, true>('('))
+    if (!cursor.check<false, true>(ascii_to_mix_char('(')))
         return ResultType::success(std::nullopt);
 
     auto const expression_result = try_parse_expression();
@@ -313,7 +319,7 @@ ExpressionParser::parse_F_part()
     if (!F_part_result)
         return ResultType::failure(err_invalid_input);
 
-    if (!cursor.check<false, true>(')'))
+    if (!cursor.check<false, true>(ascii_to_mix_char(')')))
     {
         g_logger << "Missing right bracket of F-part\n";
         return ResultType::failure(err_invalid_input);
@@ -369,7 +375,7 @@ ExpressionParser::parse_W_value()
             slice.construct(word);
         reg.store(slice);
     }
-    while(!cursor.check<false, true>(','));
+    while(!cursor.check<false, true>(ascii_to_mix_char(',')));
 
     auto const W_value_result = ValidatedWord::constructor(word.native_value());
     if (!W_value_result)
@@ -383,19 +389,19 @@ ExpressionParser::parse_W_value()
 }
 
 void
-Assembler::add_symbol(std::string_view loc)
+Assembler::add_symbol(string_view loc)
 {
-    symbol_table.insert({ std::string(loc), location_counter });
+    symbol_table.insert({ string(loc), location_counter });
 }
 
 void
-Assembler::add_symbol(std::string_view loc, ValidatedWord value)
+Assembler::add_symbol(string_view loc, ValidatedWord value)
 {
-    symbol_table.insert({ std::string(loc), value });
+    symbol_table.insert({ string(loc), value });
 }
 
 Result<void, Error>
-Assembler::assemble_equ(std::string_view loc, ValidatedWord value)
+Assembler::assemble_equ(string_view loc, ValidatedWord value)
 {
     using ResultType = Result<void, Error>;
     if (loc.empty())
@@ -409,8 +415,9 @@ Assembler::assemble_equ(std::string_view loc, ValidatedWord value)
 }
 
 Result<void, Error>
-Assembler::assemble_orig(std::string_view loc, ValidatedWord value)
+Assembler::assemble_orig(string_view loc, ValidatedWord value)
 {
+    using ResultType = Result<void, Error>;
     if (!loc.empty())
         add_symbol(loc);
     
@@ -418,32 +425,34 @@ Assembler::assemble_orig(std::string_view loc, ValidatedWord value)
 }
 
 Result<void, Error>
-Assembler::assemble_con(std::string_view loc, ValidatedWord value)
+Assembler::assemble_con(string_view loc, ValidatedWord value)
 {
-    using ReturnType = Result<void, Error>;
+    using ResultType = Result<void, Error>;
     if (!loc.empty())
         add_symbol(loc);
    
     std::array<Byte, bytes_in_word> const bytes = as_bytes(value);
-    binary << static_cast<char>(bytes[0].sign);
+    binary << bytes[0].sign;
     for (size_t i = 1; i < bytes.size(); i++)
-        binary << static_cast<char>(bytes[i].byte);
+        binary << bytes[i].byte;
     auto increment_result = location_counter.increment();
     if (!increment_result)
-        return ReturnType::failure(err_overflow);
-    ValidatedWord incremented_value = increment_result.value();
-    location_counter = incremented_value;
+        return ResultType::failure(err_overflow);
+    location_counter = increment_result.value();
+    return ResultType::success();
 }
 
 Result<void, Error>
-Assembler::assemble_alf(std::string_view loc, std::string_view str)
+Assembler::assemble_alf(string_view loc, string_view str)
 {
     if (!loc.empty())
         add_symbol(loc);
+
+    binary << s_plus << str;
 }
 
 void
-Assembler::assemble_end(std::string_view loc, ValidatedWord value)
+Assembler::assemble_end(string_view loc, ValidatedWord value)
 {
 
 }
@@ -471,7 +480,7 @@ Assembler::assemble_line()
         }
     }
 
-    if (cursor.check<true, false>('*'))
+    if (cursor.check<true, false>(ascii_to_mix_char('*')))
         return ResultType::success(false);
 
     // Now, this line is either an assembler directive or an assembler instruction
@@ -479,10 +488,10 @@ Assembler::assemble_line()
     // LOC <space> OP <space> ADDRESS COMMENTS
     // Where LOC can be empty
     // COMMENTS can be empty or otherwise must begin with a space
-    std::string_view loc;
+    string_view loc;
     {
         auto begin = cursor.save_str_begin();
-        cursor.advance_until(' ');
+        cursor.advance_until(ascii_to_mix_char(' '));
         if (cursor.empty())
         {
             g_logger << "OP and ADDRESS not found\n";
@@ -492,10 +501,10 @@ Assembler::assemble_line()
         cursor.advance();
     }
 
-    std::string_view op;
+    string_view op;
     {
         auto begin = cursor.save_str_begin();
-        cursor.advance_until(' ');
+        cursor.advance_until(ascii_to_mix_char(' '));
         if (cursor.empty())
         {
             g_logger << "ADDRESS not found\n";
@@ -505,12 +514,12 @@ Assembler::assemble_line()
         cursor.advance();
     }
 
-    std::string_view address;
+    string_view address;
     {
         ExpressionParser expression_parser(cursor, symbol_table, unresolved_symbols);
         
         auto begin = cursor.save_str_begin();
-        cursor.advance_until(' ');
+        cursor.advance_until(ascii_to_mix_char(' '));
         address = cursor.saved_str_end(begin);
         if (!cursor.empty())
             cursor.advance();
@@ -525,8 +534,9 @@ Assembler::assemble_line()
         }
     }
 
-#define EXPRESSION_PARSER() ExpressionParser(cursor, symbol_table, unresolved_symbols)
-    if (op == "EQU") // ADDRESS is W value
+#define EXPRESSION_PARSER() ExpressionParser(cursor, symbol_table, unresolved_symbols)    
+    
+    if (streq(op, "EQU")) // ADDRESS is W value
     {
         auto const W_value_result = EXPRESSION_PARSER().parse_W_value();
         if (!W_value_result)
@@ -537,7 +547,7 @@ Assembler::assemble_line()
         ValidatedWord const W_value = W_value_result.value();
         assemble_equ(loc, W_value);
     }
-    else if (op == "ORIG") // ADDRESS is W value
+    else if (streq(op, "ORIG")) // ADDRESS is W value
     {
         auto const W_value_result = EXPRESSION_PARSER().parse_W_value();
         if (!W_value_result)
@@ -548,7 +558,7 @@ Assembler::assemble_line()
         ValidatedWord const W_value = W_value_result.value();
         assemble_orig(loc, W_value);
     }
-    else if (op == "CON") // ADDRESS is W value
+    else if (streq(op, "CON")) // ADDRESS is W value
     {
         auto const W_value_result = EXPRESSION_PARSER().parse_W_value();
         if (!W_value_result)
@@ -559,7 +569,7 @@ Assembler::assemble_line()
         ValidatedWord const W_value = W_value_result.value();
         assemble_con(loc, W_value);
     }
-    else if (op == "ALF") // ADDRESS is 5 characters
+    else if (streq(op, "ALF")) // ADDRESS is 5 characters
     {
         if (cursor.length() < 5)
         {
@@ -571,7 +581,7 @@ Assembler::assemble_line()
         auto str = cursor.saved_str_end(begin);
         assemble_alf(loc, str);
     }
-    else if (op == "END") // ADDRESS is W value
+    else if (streq(op, "END")) // ADDRESS is W value
     {
         auto const W_value_result = EXPRESSION_PARSER().parse_W_value();
         if (!W_value_result)
@@ -594,7 +604,7 @@ Assembler::assemble_line()
         assemble_instruction(loc, AIF);
     }
 #undef EXPRESSION_PARSER
-    __attribute__((unused)) std::string_view const comments = cursor.partial_line_segment;
+    __attribute__((unused)) string_view const comments = cursor.partial_line_segment;
 
     return Result<bool, Error>::success(false);
 }
@@ -604,4 +614,6 @@ Assembler::assemble()
 {
     while (assemble_line())
         ;
+}
+
 }

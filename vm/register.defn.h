@@ -1,6 +1,8 @@
 #pragma once
 #include <base/base.h>
 #include <vm/register.decl.h>
+namespace mix 
+{
 
 struct ZeroRegister final
 {
@@ -143,3 +145,5 @@ struct ExtendedRegister final
 
     void shift_right_circular(NativeInt shift_by);
 };
+
+}

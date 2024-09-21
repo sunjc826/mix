@@ -1,11 +1,12 @@
 #pragma once
 #include <base/container.decl.h>
 #include <base/math.h>
-
+namespace mix
+{
 template <OwnershipKind kind, bool is_signed, size_t size>
 NativeInt IntegralContainer<kind, is_signed, size>::native_sign() const
 {
-    return ::native_sign(sign());
+    return mix::native_sign(sign());
 }
 
 template <OwnershipKind kind, bool is_signed, size_t size>
@@ -34,4 +35,6 @@ NativeInt IntegralContainer<kind, is_signed, size>::native_value() const
     for (size_t i = is_signed; i < container.size(); i++)
         accum += lut[i] * container[i].byte;
     return native_sign() * accum;
+}
+
 }

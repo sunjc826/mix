@@ -1,5 +1,7 @@
 #pragma once
 #include <base/math.decl.h>
+namespace mix
+{
 
 // Instead of providing a generalized constexpr integral pow function,
 // let's only compute powers up to 11 due to rAX.
@@ -15,9 +17,7 @@ pow_lookup_table(NativeByte base)
     return lut;
 }
 
-
-static __attribute__((always_inline))
-constexpr 
+constexpr
 NativeInt
 pow(NativeByte base, size_t exponent)
 {
@@ -25,7 +25,6 @@ pow(NativeByte base, size_t exponent)
 }
 
 template <size_t exponent>
-static __attribute__((always_inline))
 constexpr 
 NativeInt
 pow(NativeByte base)
@@ -39,3 +38,5 @@ constexpr auto lut = pow_lookup_table(byte_size);
 static_assert(-(lut.back() - 1) >= std::numeric_limits<NativeInt>::min());
 // Every positive MIX integral value must be representable by NativeInt
 static_assert(lut.back() - 1 <= std::numeric_limits<NativeInt>::max());
+
+}

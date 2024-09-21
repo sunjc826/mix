@@ -3,6 +3,8 @@
 #include <base/types.h>
 #include <base/validator.h>
 
+namespace mix
+{
 // v2 allows arbitrary DAGS
 // No cycles though.
 
@@ -65,4 +67,6 @@ consteval bool implies()
     if constexpr (sz == 0)
         return false;
     return details::implies_helper<from, to>(std::make_integer_sequence<size_t, sz>());
+}
+
 }

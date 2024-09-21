@@ -1,6 +1,8 @@
 #pragma once
 #include <base/base.h>
 #include <vm/machine.defn.h>
+namespace mix
+{
 
 __attribute__((always_inline)) inline
 void Machine::update_current_instruction()
@@ -41,4 +43,6 @@ Word<OwnershipKind::mutable_view> Machine::get_memory_word(NativeInt address)
 {
     check_address_bounds(address);
     return {std::span<Byte, bytes_in_word>{memory.begin() + address * bytes_in_word, bytes_in_word}};
+}
+
 }

@@ -18,7 +18,8 @@
 #include <tuple>
 
 using namespace std::string_view_literals;
-
+namespace mix
+{
 // The size of main memory of a MIX machine in terms of the number of MIX words
 constexpr size_t main_memory_size = 4000;
 
@@ -102,3 +103,8 @@ struct ByteConversionResult
 template <size_t size>
 ByteConversionResult<size> as_bytes(NativeInt value);
 
+#define REMOVE_CONST_FROM_PTR(ptr)\
+    const_cast<std::remove_const_t<std::remove_reference_t<decltype(*ptr)>> *>(ptr)
+
+
+}

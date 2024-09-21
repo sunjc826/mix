@@ -1,6 +1,8 @@
 #pragma once
 #include <base/types.h>
 #include <base/validator.h>
+namespace mix
+{
 
 // v1 only supports tree-like graphs of implications
 // if we wish to avoid ambiguous implicit conversions.
@@ -51,3 +53,5 @@ IMPLIES(is_mix_address, is_mix_positive_word)
 IMPLIES(is_mix_positive_word, is_mix_word)
 
 #undef IMPLIES
+
+}

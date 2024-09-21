@@ -1,5 +1,7 @@
 #include <base/base.h>
 #include <vm/register.h>
+namespace mix
+{
 
 Sign ZeroRegister::sign() const
 {
@@ -8,7 +10,7 @@ Sign ZeroRegister::sign() const
 
 NativeInt ZeroRegister::native_sign() const
 {
-    return ::native_sign(sign());
+    return mix::native_sign(sign());
 }
 
 NativeInt ZeroRegister::native_value() const
@@ -98,4 +100,6 @@ void ExtendedRegister::shift_right_circular(NativeInt shift_by)
         rA.reg[i + 1].byte = reg.reg[i].byte;
         rX.reg[i + 1].byte = reg.reg[i + NumberRegister::unsigned_size_v].byte;
     }
+}
+
 }

@@ -1,5 +1,8 @@
 #pragma once
 #include <cstddef>
+namespace mix
+{
+    
 struct TypeErasedRegister;
 template <size_t size>
 struct RegisterWithoutSign;
@@ -11,3 +14,5 @@ struct IndexRegister;
 struct JumpRegister;
 
 struct ExtendedRegister;
+
+}

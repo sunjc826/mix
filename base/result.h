@@ -1,5 +1,7 @@
 #pragma once
 #include <memory>
+namespace mix
+{
 
 template <typename Value, typename Error = void>
 class Result
@@ -273,3 +275,5 @@ public:
         return is_success();
     }
 };
+
+}

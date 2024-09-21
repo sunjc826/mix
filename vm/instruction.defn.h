@@ -2,6 +2,8 @@
 #include <base/base.h>
 #include <vm/instruction.decl.h>
 #include <vm/machine.decl.h>
+namespace mix
+{
 
 struct Instruction : public Word<OwnershipKind::owns>
 {
@@ -58,3 +60,5 @@ struct Instruction : public Word<OwnershipKind::owns>
     __attribute__((always_inline))
     NativeInt native_V() const { return native_MF(); }
 };
+
+}
