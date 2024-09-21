@@ -14,6 +14,8 @@ EXECUTABLE_FLAGS := -fpie
 SHARED_LIB_FLAGS := -fpic
 STATIC_LIB_FLAGS := -fpic
 OBJECT_LIB_FLAGS := -fpic
+EXECUTABLE_LDFLAGS :=
+SHARED_LIB_LDFLAGS := -shared
 EXECUTABLE_OBJECT_CFLAGS :=
 SHARED_LIB_OBJECT_CFLAGS :=
 STATIC_LIB_OBJECT_CFLAGS :=
@@ -29,19 +31,11 @@ STATIC_LIB_TARGETS :=
 OBJECT_LIB_TARGETS := simulator assembler
 PSEUDO_TARGETS := linenoise
 
-# In CMake terminology,
-# XXX are private
-# INTERFACE_XXX are interface
-# For simplicity, we don't handle public
-# Because then we would need to do topological sort...
-# We can use this target based approach to most of the variables
-# but for simplicity, let us start with FLAGS, OBJECT_FLAGS and SOURCES.
+simulator_PRIVATE_SOURCES := instruction.cpp register.cpp machine.cpp
 
-simulator_SOURCES := instruction.cpp register.cpp machine.cpp
+assembler_PRIVATE_SOURCES := assembler.cpp
 
-assembler_SOURCES := assembler.cpp
-
-# simulator_DEPS := linenoise
+simulator_PRIVATE_DEPS := linenoise
 
 linenoise_DIR := external/linenoise/
 
@@ -49,74 +43,81 @@ linenoise_INTERFACE_OBJECT_FLAGS :=
 
 linenoise_INTERFACE_SOURCES := $(linenoise_DIR)/linenoise.c 
 
+##### BEGIN: CMake-inspired build system
+
 # https://stackoverflow.com/questions/16144115/makefile-remove-duplicate-words-without-sorting
 uniq = $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),$1)))
 
+ALL_TARGETS=$(EXECUTABLE_TARGETS) $(STATIC_LIB_TARGETS) $(SHARED_LIB_TARGETS) $(OBJECT_LIB_TARGETS)
+
 .PHONY: all
-all: $(EXECUTABLE_TARGETS) $(STATIC_LIB_TARGETS) $(SHARED_LIB_TARGETS) $(OBJECT_LIB_TARGETS);
+all: $(ALL_TARGETS);
 
 .PHONY: clean
-clean: $(foreach TARGET,$(EXECUTABLE_TARGETS) $(STATIC_LIB_TARGETS) $(SHARED_LIB_TARGETS) $(OBJECT_LIB_TARGETS),clean_$(TARGET));
+clean: $(foreach TARGET,$(ALL_TARGETS),clean_$(TARGET));
 
-define make_target_variables_prologue
-$(TARGET)_SOURCES_ORIG := $($(TARGET)_SOURCES)
-$(TARGET)_SOURCES = $$($(TARGET)_SOURCES_ORIG)
-$(TARGET)_SOURCES += $(foreach DEP,$($(TARGET)_DEPS),$($(DEP)_INTERFACE_SOURCES))
+.PHONY: debug
+debug: $(foreach TARGET,$(ALL_TARGETS) $(PSEUDO_TARGETS),debug_$(TARGET));
 
-$(TARGET)_FLAGS_ORIG := $($(TARGET)_FLAGS)
-$(TARGET)_FLAGS = $$($(TARGET)_FLAGS_ORIG)
-$(TARGET)_FLAGS += $(foreach DEP,$($(TARGET)_DEPS),$($(DEP)_INTERFACE_FLAGS))
+# The eval make_xxx_prologue, eval make_xxx approach keeps the amount of $$ escaping in make_xxx small
+define make_transitive_target_variables_prologue
+$(TARGET)_PUBLIC_$(ATTR)_SAVED := $($(TARGET)_PUBLIC_$(ATTR))
+$(TARGET)_PRIVATE_$(ATTR)_SAVED := $($(TARGET)_PRIVATE_$(ATTR))
+$(TARGET)_INTERFACE_$(ATTR)_SAVED := $($(TARGET)_INTERFACE_$(ATTR))
 
-$(TARGET)_OBJECT_FLAGS_ORIG := $($(TARGET)_OBJECT_FLAGS)
-$(TARGET)_OBJECT_FLAGS = $$($(TARGET)_OBJECT_FLAGS_ORIG)
-$(TARGET)_OBJECT_FLAGS += $(foreach DEP,$($(TARGET)_DEPS),$($(DEP)_INTERFACE_OBJECT_FLAGS))
-
-$$(info $(TARGET): $$($(TARGET)_SOURCES))
 endef
 
-define make_target_variables
-$(TARGET)_CXX_SOURCES = $(filter %.cpp,$($(TARGET)_SOURCES))
+define make_transitive_target_variables
+$(TARGET)_PUBLIC_$(ATTR) = $($(TARGET)_PUBLIC_$(ATTR)_SAVED) 
+$(TARGET)_PUBLIC_$(ATTR) += $(foreach DEP,$($(TARGET)_PUBLIC_DEPS),$$($(DEP)_PUBLIC_$(ATTR)) $$($(DEP)_INTERFACE_$(ATTR)))
+
+$(TARGET)_PRIVATE_$(ATTR) = $($(TARGET)_PRIVATE_$(ATTR)_SAVED) 
+$(TARGET)_PRIVATE_$(ATTR) += $(foreach DEP,$($(TARGET)_PRIVATE_DEPS),$$($(DEP)_PUBLIC_$(ATTR)) $$($(DEP)_INTERFACE_$(ATTR)))
+
+$(TARGET)_INTERFACE_$(ATTR) = $($(TARGET)_INTERFACE_$(ATTR)_SAVED)
+$(TARGET)_INTERFACE_$(ATTR) += $(foreach DEP,$($(TARGET)_INTERFACE_DEPS),$$($(DEP)_PUBLIC_$(ATTR)) $$($(DEP)_INTERFACE_$(ATTR)))
+
+$(TARGET)_OWN_$(ATTR) = $$($(TARGET)_PUBLIC_$(ATTR)) $$($(TARGET)_PRIVATE_$(ATTR))
+
+endef
+
+ATTR_LIST := SOURCES FLAGS OBJECT_FLAGS
+
+define make_derived_target_variables_prologue
+$$(foreach ATTR,$(ATTR_LIST),$$(eval $$(make_transitive_target_variables_prologue)) $$(eval $$(make_transitive_target_variables)))
+
+endef
+
+define make_derived_target_variables
+$(TARGET)_CXX_SOURCES = $(filter %.cpp,$($(TARGET)_OWN_SOURCES))
 $(TARGET)_CXX_OBJECTS = $$(patsubst %.cpp,%.o,$$($(TARGET)_CXX_SOURCES))
-$(TARGET)_C_SOURCES = $(filter %.c,$($(TARGET)_SOURCES))
+$(TARGET)_C_SOURCES = $(filter %.c,$($(TARGET)_OWN_SOURCES))
 $(TARGET)_C_OBJECTS = $$(patsubst %.c,%.o,$$($(TARGET)_C_SOURCES))
 $(TARGET)_OBJECTS = $$($(TARGET)_CXX_OBJECTS) $$($(TARGET)_C_OBJECTS)
 
-$$(info $(TARGET): $$($(TARGET)_OBJECTS))
 endef
 
-# Despite the lack of an explicit enum, exactly one of 
-# IS_EXECUTABLE, IS_SHARED_LIB, IS_STATIC_LIB, IS_OBJECT_LIB
-# is 'yes'.
-
-define make_executable_relocatable_object_prologue
-IS_EXECUTABLE:=yes
-IS_SHARED_LIB:=
-IS_STATIC_LIB:=
-IS_OBJECT_LIB:=
+define make_executable_target_variables
+$(TARGET)_IS_EXECUTABLE:=yes
+$(TARGET)_BINARY:=$(TARGET)
 
 endef
 
-define make_shared_lib_relocatable_object_prologue
-IS_EXECUTABLE:=
-IS_SHARED_LIB:=yes
-IS_STATIC_LIB:=
-IS_OBJECT_LIB:=
+define make_shared_lib_target_variables
+$(TARGET)_IS_SHARED_LIB:=yes
+$(TARGET)_BINARY:=lib$(TARGET).so
 
 endef
 
-define make_static_lib_relocatable_object_prologue
-IS_EXECUTABLE:=
-IS_SHARED_LIB:=
-IS_STATIC_LIB:=yes
-IS_OBJECT_LIB:=
+define make_static_lib_target_variables
+$(TARGET)_IS_STATIC_LIB:=yes
+$(TARGET)_BINARY:=lib$(TARGET).a
 
 endef
 
-define make_object_lib_relocatable_object_prologue
-IS_EXECUTABLE:=
-IS_SHARED_LIB:=
-IS_STATIC_LIB:=
-IS_OBJECT_LIB:=yes
+define make_object_lib_target_variables
+$(TARGET)_IS_OBJECT_LIB:=yes
+$(TARGET)_BINARY:=
 
 endef
 
@@ -128,10 +129,10 @@ $($(TARGET)_C_OBJECTS): %.o : %.c
 	$(CFLAGS) \
 	$(OBJECT_FLAGS) \
 	$(OBJECT_CFLAGS) \
-	$(if $(IS_EXECUTABLE),$(EXECUTABLE_FLAGS) $(EXECUTABLE_OBJECT_CFLAGS)) \
-	$(if $(IS_SHARED_LIB),$(SHARED_LIB_FLAGS) $(SHARED_LIB_OBJECT_CFLAGS)) \
-	$(if $(IS_STATIC_LIB),$(STATIC_LIB_FLAGS) $(STATIC_LIB_OBJECT_CFLAGS)) \
-	$(if $(IS_OBJECT_LIB),$(OBJECT_LIB_FLAGS) $(OBJECT_LIB_OBJECT_CFLAGS)) \
+	$(if $($(TARGET)_IS_EXECUTABLE),$(EXECUTABLE_FLAGS) $(EXECUTABLE_OBJECT_CFLAGS)) \
+	$(if $($(TARGET)_IS_SHARED_LIB),$(SHARED_LIB_FLAGS) $(SHARED_LIB_OBJECT_CFLAGS)) \
+	$(if $($(TARGET)_IS_STATIC_LIB),$(STATIC_LIB_FLAGS) $(STATIC_LIB_OBJECT_CFLAGS)) \
+	$(if $($(TARGET)_IS_OBJECT_LIB),$(OBJECT_LIB_FLAGS) $(OBJECT_LIB_OBJECT_CFLAGS)) \
 	$($(TARGET)_FLAGS) \
 	$($(TARGET)_C_FLAGS) \
 	$($(TARGET)_OBJECT_FLAGS) \
@@ -146,10 +147,10 @@ $($(TARGET)_CXX_OBJECTS): %.o : %.cpp
 	$(CXXFLAGS) \
 	$(OBJECT_FLAGS) \
 	$(OBJECT_CXXFLAGS) \
-	$(if $(IS_EXECUTABLE),$(EXECUTABLE_FLAGS) $(EXECUTABLE_OBJECT_CXXFLAGS)) \
-	$(if $(IS_SHARED_LIB),$(SHARED_LIB_FLAGS) $(SHARED_LIB_OBJECT_CXXFLAGS)) \
-	$(if $(IS_STATIC_LIB),$(STATIC_LIB_FLAGS) $(STATIC_LIB_OBJECT_CXXFLAGS)) \
-	$(if $(IS_OBJECT_LIB),$(OBJECT_LIB_FLAGS) $(OBJECT_LIB_OBJECT_CXXFLAGS)) \
+	$(if $($(TARGET)_IS_EXECUTABLE),$(EXECUTABLE_FLAGS) $(EXECUTABLE_OBJECT_CXXFLAGS)) \
+	$(if $($(TARGET)_IS_SHARED_LIB),$(SHARED_LIB_FLAGS) $(SHARED_LIB_OBJECT_CXXFLAGS)) \
+	$(if $($(TARGET)_IS_STATIC_LIB),$(STATIC_LIB_FLAGS) $(STATIC_LIB_OBJECT_CXXFLAGS)) \
+	$(if $($(TARGET)_IS_OBJECT_LIB),$(OBJECT_LIB_FLAGS) $(OBJECT_LIB_OBJECT_CXXFLAGS)) \
 	$($(TARGET)_FLAGS) \
 	$($(TARGET)_CXXFLAGS) \
 	$($(TARGET)_OBJECT_FLAGS) \
@@ -159,60 +160,86 @@ endif
 
 endef
 
-define make_executable_target
-$(TARGET): $($(TARGET)_OBJECTS)
-	$(CXX) -o $$@ $$^
-
-clean_$(TARGET):
-	rm -rf $(TARGET) $($(TARGET)_OBJECTS)
-
-endef
-
-define make_shared_lib_target
-.PHONY: $(TARGET)
-$(TARGET): lib$(TARGET).so;
-
-lib$(TARGET).so: $($(TARGET)_OBJECTS)
-	$(CXX) -o $$@ -shared $$^
-
+define make_clean_target
 .PHONY: clean_$(TARGET)
 clean_$(TARGET):
-	rm -rf lib$(TARGET).so $($(TARGET)_OBJECTS)
+	-rm -rf $($(TARGET)_BINARY) $($(TARGET)_OBJECTS)
 
 endef
 
-define make_static_lib_target
+define make_debug_target
+.PHONY: debug_$(TARGET)
+debug_$(TARGET):
+	@echo TARGET = $(TARGET)
+	@echo type = $(if $($(TARGET)_IS_EXECUTABLE),exe,$(if $($(TARGET)_IS_SHARED_LIB),shared library,$(if $($(TARGET)_IS_STATIC_LIB),static library,$(if $($(TARGET)_IS_OBJECT_LIB),object library,psuedo library))))
+	@$(foreach ATTR,$(ATTR_LIST),\
+	echo $(TARGET)_PUBLIC_$(ATTR) = $($(TARGET)_PUBLIC_$(ATTR));\
+	echo $(TARGET)_PRIVATE_$(ATTR) = $($(TARGET)_PRIVATE_$(ATTR));\
+	echo $(TARGET)_INTERFACE_$(ATTR) = $($(TARGET)_INTERFACE_$(ATTR));\
+	)
+	@echo $(TARGET)_OBJECTS = $($(TARGET)_OBJECTS)
+	@echo $(TARGET)_BINARY = $($(TARGET)_BINARY)
+	@echo
+
+endef
+
+define make_targets
+ifneq ($($(TARGET)_BINARY),)
+  ifneq ($(TARGET),$($(TARGET)_BINARY))
+
 .PHONY: $(TARGET)
-$(TARGET): lib$(TARGET).a;
+$(TARGET): $($(TARGET)_BINARY);
 
-lib$(TARGET).a: $($(TARGET)_OBJECTS)
-	$(AR) rs $$@ $$^
+  endif
 
-.PHONY: clean_$(TARGET)
-clean_$(TARGET):
-	rm -rf lib$(TARGET).a $($(TARGET)_OBJECTS)
+$($(TARGET)_BINARY): $($(TARGET)_OBJECTS)
 
-endef
+else
 
-define make_object_lib_target
 .PHONY: $(TARGET)
 $(TARGET): $($(TARGET)_OBJECTS);
 
-.PHONY: clean_$(TARGET)
-clean_$(TARGET):
-	rm -rf $($(TARGET)_OBJECTS)
+endif
+
+$(make_clean_target)
+
+$(make_debug_target)
 
 endef
 
-$(foreach TARGET,$(EXECUTABLE_TARGETS) $(STATIC_LIB_TARGETS) $(SHARED_LIB_TARGETS) $(OBJECT_LIB_TARGETS),$(eval $(make_target_variables_prologue)) $(eval $(make_target_variables)))
-EXTERNAL_LIBS:=$(call uniq,$(foreach TARGET,$(EXECUTABLE_TARGETS) $(STATIC_LIB_TARGETS) $(SHARED_LIB_TARGETS),$($(TARGET)_EXTERNAL_LIBS)))
-$(foreach TARGET,$(EXECUTABLE_TARGETS),$(eval $(make_executable_relocatable_object_prologue)) $(eval $(make_relocatable_object)))
-$(foreach TARGET,$(SHARED_LIB_TARGETS),$(eval $(make_shared_lib_relocatable_object_prologue)) $(eval $(make_relocatable_object)))
-$(foreach TARGET,$(STATIC_LIB_TARGETS),$(eval $(make_static_lib_relocatable_object_prologue)) $(eval $(make_relocatable_object)))
-$(foreach TARGET,$(OBJECT_LIB_TARGETS),$(eval $(make_object_lib_relocatable_object_prologue)) $(eval $(make_relocatable_object)))
-$(foreach TARGET,$(EXECUTABLE_TARGETS),$(eval $(make_executable_target)))
-$(foreach TARGET,$(SHARED_LIB_TARGETS),$(eval $(make_shared_lib_target)))
-$(foreach TARGET,$(STATIC_LIB_TARGETS),$(eval $(make_static_lib_target)))
-$(foreach TARGET,$(OBJECT_LIB_TARGETS),$(eval $(make_object_lib_target)))
+define make_executable_targets
+$($(TARGET)_BINARY):
+	$(CXX) -o $$@ $(LDFLAGS) $(EXECUTABLE_LDFLAGS) $($(TARGET)_OBJECTS) $(foreach DEP,$($(TARGET)_DEPS),$($(DEP)_BINARY))
+
+endef
+
+define make_shared_lib_targets
+$($(TARGET)_BINARY):
+	$(CXX) -o $$@ $(LDFLAGS) $(SHARED_LIB_LDFLAGS) $$^
+
+endef
+
+define make_static_lib_targets
+$($(TARGET)_BINARY):
+	$(AR) rs $$@ $$^
+
+endef
+
+define make_object_lib_targets
+
+endef
+
+$(foreach TARGET,$(ALL_TARGETS) $(PSEUDO_TARGETS),$(eval $(make_derived_target_variables_prologue)) $(eval $(make_derived_target_variables)))
+$(foreach TARGET,$(EXECUTABLE_TARGETS),$(eval $(make_executable_target_variables)))
+$(foreach TARGET,$(SHARED_LIB_TARGETS),$(eval $(make_shared_lib_target_variables)))
+$(foreach TARGET,$(STATIC_LIB_TARGETS),$(eval $(make_static_lib_target_variables)))
+$(foreach TARGET,$(OBJECT_LIB_TARGETS),$(eval $(make_object_lib_target_variables)))
+$(foreach TARGET,$(ALL_TARGETS),$(eval $(make_relocatable_object)))
+$(foreach TARGET,$(ALL_TARGETS),$(eval $(make_targets)))
+$(foreach TARGET,$(PSEUDO_TARGETS),$(eval $(make_debug_target)))
+$(foreach TARGET,$(EXECUTABLE_TARGETS),$(eval $(make_executable_targets)))
+$(foreach TARGET,$(SHARED_LIB_TARGETS),$(eval $(make_shared_lib_targets)))
+$(foreach TARGET,$(STATIC_LIB_TARGETS),$(eval $(make_static_lib_targets)))
+$(foreach TARGET,$(OBJECT_LIB_TARGETS),$(eval $(make_object_lib_targets)))
 
 
