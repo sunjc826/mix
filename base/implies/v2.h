@@ -1,7 +1,9 @@
 #pragma once
 #include "base/types.decl.h"
+#include "base/validator.decl.h"
 #include <base/types.h>
 #include <base/validator.h>
+#include <type_traits>
 
 namespace mix
 {
@@ -62,11 +64,14 @@ consteval bool implies_helper(std::integer_sequence<size_t, Is...> const &)
 template <Validator from, Validator to>
 consteval bool implies()
 {
-    if constexpr(from == to) return true;
+    if constexpr(from == to)
+        return true;
     constexpr size_t sz = DirectImplications<from>::implications.size();
     if constexpr (sz == 0)
         return false;
     return details::implies_helper<from, to>(std::make_integer_sequence<size_t, sz>());
 }
+
+
 
 }
