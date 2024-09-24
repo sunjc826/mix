@@ -41,4 +41,16 @@ static constexpr
 bool
 is_mix_positive_word(NativeInt i);
 
+template <typename ValidatorT1, typename ValidatorT2>
+struct And
+{
+    static ValidatorT1 v1;
+    static ValidatorT2 v2;
+    constexpr
+    bool operator()(NativeInt i) const
+    {
+        return v1(i) && v2(i);
+    }
+};
+
 }

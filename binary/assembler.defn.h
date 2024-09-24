@@ -1,4 +1,5 @@
 #pragma once
+#include "base/validation/validator.impl.h"
 #include <base/base.h>
 #include <base/error.h>
 #include <base/character_set.h>
@@ -12,11 +13,6 @@
 
 namespace mix
 {
-
-struct BufferedIStream
-{
-    istream input;
-};
 
 struct Cursor
 {
@@ -283,8 +279,8 @@ public:
 
 class Assembler
 {
-    istream &assembly;
-    ostream &binary;
+    StdIstream &assembly;
+    StdOstream &binary;
     string line;
     Cursor cursor;
     ValidatedWord location_counter;
@@ -323,7 +319,7 @@ class Assembler
     Result<bool, Error>
     assemble_line();
 public:
-    Assembler(istream &assembly, ostream &binary)
+    Assembler(StdIstream &assembly, StdOstream &binary)
         : assembly(assembly), binary(binary), location_counter(zero)
     {}
     

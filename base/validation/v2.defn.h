@@ -1,4 +1,5 @@
 #pragma once
+#include "base/validation/validator.impl.h"
 #include <base/validation/v2.decl.h>
 #include <base/implies/v3.h>
 #include <base/result.h>
@@ -8,7 +9,7 @@ template <typename StorageT, typename ValidatorT, typename ConversionT, typename
 class ValidatedObject
 {
 protected:
-    static ValidatorT validator;
+    static inline ValidatorT const validator;
     using child_type = std::conditional_t<std::is_void_v<ChildT>, ValidatedObject, ChildT>;
     using map_func_type = StorageT (*)(StorageT);
     template <bool inplace>
@@ -16,7 +17,7 @@ protected:
     StorageT value;
 
     constexpr
-    ValidatedObject(StorageT value) : value(value) {}
+    explicit ValidatedObject(StorageT value) : value(value) {}
 
     template <bool inplace, map_func_type fn>
     constexpr
@@ -41,11 +42,11 @@ protected:
     }
 
 public:
-    template <typename OtherValidatorT, typename OtherConversionT>
+    template <typename OtherValidatorT, typename OtherConversionT, typename OtherChildT>
     requires (implies<OtherValidatorT, ValidatorT>())
     [[gnu::always_inline]]
     constexpr
-    ValidatedObject(ValidatedObject<StorageT, OtherValidatorT, OtherConversionT> const &other)
+    ValidatedObject(ValidatedObject<StorageT, OtherValidatorT, OtherConversionT, OtherChildT> const &other)
         : value(other.raw_unwrap())
     {}
 
@@ -55,7 +56,7 @@ public:
     constructor(StorageT value)
     {
         if (!validator(value)) return Result<child_type, void>::failure();
-        return Result<child_type, void>::success(child_type(value));
+        return Result<child_type, void>::success(ValidatedObject(value));
     }
 
     [[gnu::always_inline]]
@@ -105,10 +106,13 @@ class ValidatedInt : public ValidatedObject<NativeInt, ValidatorT, ConversionT, 
     using parent_type = ValidatedObject<NativeInt, ValidatorT, ConversionT, std::conditional_t<std::is_void_v<ChildT>, ValidatedInt<ValidatorT, ConversionT, void>, ChildT>>;
     using child_type = parent_type::child_type;    
 public:
+    template <typename OtherValidatorT, typename OtherConversionT, typename OtherChildT>
+    // We need the requires here so that the compiler error when implies fails appears at construction
+    requires (implies<OtherValidatorT, ValidatorT>())
     [[gnu::always_inline]]
     constexpr
-    ValidatedInt(parent_type const &obj)
-        : parent_type(obj)
+    ValidatedInt(ValidatedObject<NativeInt, OtherValidatorT, OtherConversionT, OtherChildT> const &obj)
+        : /* otherwise the compiler error would appear here ---> */ parent_type(obj)
     {}
 
     [[nodiscard, gnu::flatten]]
@@ -151,9 +155,11 @@ class ValidatedWord : public ValidatedInt<IsMixWord, NativeInt, ValidatedWord>
 {
     using parent_type = ValidatedInt<IsMixWord, NativeInt, ValidatedWord>;
 public:
+    template <typename OtherValidatorT, typename OtherConversionT, typename OtherChildT>
+    requires (implies<OtherValidatorT, IsMixWord>())
     [[gnu::always_inline]]
     constexpr
-    ValidatedWord(ValidatedObject const &obj)
+    ValidatedWord(ValidatedObject<NativeInt, OtherValidatorT, OtherConversionT, OtherChildT> const &obj)
         : parent_type(obj)
     {}
 
@@ -166,6 +172,5 @@ public:
         return transform_unchecked<inplace, [](NativeInt i) { return -i; } >();
     }
 };
-
 
 }
