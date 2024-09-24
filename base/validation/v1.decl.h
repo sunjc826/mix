@@ -18,7 +18,6 @@ using ValidatedRegisterIndex = ValidatedInt<NativeByte, is_register_index>;
 class ValidatedWord;
 using ValidatedPositiveWord = ValidatedInt<NativeInt, is_mix_positive_word>;
 
-inline
-std::array<Byte, bytes_in_word> as_bytes(ValidatedWord word);
+
 
 }

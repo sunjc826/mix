@@ -1,5 +1,5 @@
 #pragma once
-#include <base/validated_int.decl.h>
+#include <base/validation/v1.decl.h>
 #include <base/implies/v2.h>
 #include <base/result.h>
 namespace mix

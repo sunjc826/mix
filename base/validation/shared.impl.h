@@ -1,9 +1,10 @@
-#pragma once
-#include <base/validated_int.defn.h>
+#include <base/validation/shared.decl.h>
+
 namespace mix
 {
     
-std::array<Byte, bytes_in_word> as_bytes(ValidatedWord word)
+std::array<Byte, bytes_in_word> 
+as_bytes(ValidatedWord word)
 {
     NativeInt value = word;
     Sign sign;
