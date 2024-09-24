@@ -1,5 +1,5 @@
 #pragma once
-#include <base/validator.decl.h>
+#include <base/validation/validator.decl.h>
 #include <base/math.h>
 namespace mix
 {
@@ -55,5 +55,22 @@ is_mix_positive_word(NativeInt i)
 {
     return 0 < i && i < lut[numerical_bytes_in_word];
 }
+
+template <NativeInt literal>
+struct IsExactValue : public ValidatorToFunctor<is_exact_value<literal>> {};
+
+template <NativeInt low, NativeInt high>
+struct IsInClosedInterval : public ValidatorToFunctor<is_in_closed_interval<low, high>> {};
+
+using IsMixByte = ValidatorToFunctor<is_mix_byte>;
+
+using IsRegisterIndex = ValidatorToFunctor<is_register_index>;
+
+using IsMixAddress = ValidatorToFunctor<is_mix_address>;
+
+using IsMixWord = ValidatorToFunctor<is_mix_word>;
+
+using IsMixPositiveWord = ValidatorToFunctor<is_mix_positive_word>;
+
 
 }

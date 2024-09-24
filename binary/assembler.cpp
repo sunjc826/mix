@@ -1,6 +1,6 @@
 #include "base/string.h"
 #include "base/types.decl.h"
-#include "base/validated_int.defn.h"
+#include "base/validation/v2.defn.h"
 #include <base/error.h>
 #include <base/io.h>
 #include <binary/assembler.h>

@@ -23,7 +23,11 @@ public:
     {
         Result result;
         result.is_success_ = true;
+        // Unfortunately, not friend of ValidatedInt/ValidatedWord
         std::construct_at(&result.value_, std::forward<Ts>(value)...);
+        // Unfortunately, not constexpr
+        // new (&result.value_) Value (std::forward<Ts>(value)...);
+        // It seems that neither function fully meets our needs.
         return result;
     }
 
@@ -183,6 +187,7 @@ public:
         Result result;
         result.is_success_ = true;
         std::construct_at(&result.value_, std::forward<Ts>(value)...);
+        // new (&result.value_) Value (std::forward<Ts>(value)...);
         return result;
     }
 

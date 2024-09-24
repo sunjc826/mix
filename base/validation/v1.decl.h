@@ -1,23 +1,21 @@
 #pragma once
 #include <base/types.h>
-#include <base/validator.h>
+#include <base/validation/validator.h>
 #include <base/character_set.h>
 
 namespace mix
 {
 
-template <typename StorageT, bool (*validator)(NativeInt), typename ChildT = void>
+template <bool (*validator)(NativeInt), typename ConversionT = NativeInt, typename ChildT = void>
 class ValidatedInt;
 
 template <NativeInt value>
-using ValidatedLiteral = ValidatedInt<NativeInt, is_exact_value<value>>;
-using ValidatedAddress = ValidatedInt<NativeInt, is_mix_address>;
-using ValidatedByte = ValidatedInt<NativeByte, is_mix_byte>;
-using ValidatedChar = ValidatedInt<NativeByte, is_mix_char>;
-using ValidatedRegisterIndex = ValidatedInt<NativeByte, is_register_index>;
+using ValidatedLiteral = ValidatedInt<is_exact_value<value>>;
+using ValidatedAddress = ValidatedInt<is_mix_address>;
+using ValidatedByte = ValidatedInt<is_mix_byte, NativeByte>;
+using ValidatedChar = ValidatedInt<is_mix_char, NativeByte>;
+using ValidatedRegisterIndex = ValidatedInt<is_register_index, NativeByte>;
 class ValidatedWord;
-using ValidatedPositiveWord = ValidatedInt<NativeInt, is_mix_positive_word>;
-
-
+using ValidatedPositiveWord = ValidatedInt<is_mix_positive_word>;
 
 }

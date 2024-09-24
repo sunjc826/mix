@@ -1,8 +1,9 @@
 #pragma once
+#include "base/validation/v2.defn.h"
 #include <base/types.h>
 #include <base/error.h>
 #include <base/character_set.h>
-#include <base/validated_int.h>
+#include <base/validation/v2.h>
 #include <limits>
 
 namespace mix

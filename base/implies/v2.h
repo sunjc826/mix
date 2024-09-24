@@ -1,8 +1,6 @@
 #pragma once
-#include "base/types.decl.h"
-#include "base/validator.decl.h"
 #include <base/types.h>
-#include <base/validator.h>
+#include <base/validation/validator.h>
 #include <type_traits>
 
 namespace mix

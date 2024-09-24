@@ -1,3 +1,4 @@
+#pragma once
 #include <base/validation/shared.decl.h>
 
 namespace mix

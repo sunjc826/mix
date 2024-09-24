@@ -1,5 +1,6 @@
 #pragma once
 #include <base/types.h>
+#include <base/function.h>
 
 #include <array>
 #include <string_view>
@@ -107,5 +108,7 @@ is_mix_char(NativeInt ch)
 {
     return ch <= 55;
 }
+
+using IsMixChar = ValidatorToFunctor<is_mix_char>;
 
 }

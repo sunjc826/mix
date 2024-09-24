@@ -2,8 +2,10 @@
 #include <base/types.h>
 #include <base/error.h>
 #include <base/character_set.h>
-#include <base/validated_int.h>
+#include <base/result.h>
+
 #include <limits>
+#include <concepts>
 
 namespace mix
 {

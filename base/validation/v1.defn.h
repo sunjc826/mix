@@ -5,17 +5,17 @@
 namespace mix
 {
 
-template <typename StorageT, bool (*validator)(NativeInt), typename ChildT>
+template <bool (*validator)(NativeInt), typename ConversionT, typename ChildT>
 class ValidatedInt
 {
 protected:
-    using type = std::conditional_t<std::is_void_v<ChildT>, ValidatedInt, ChildT>;
+    using child_type = std::conditional_t<std::is_void_v<ChildT>, ValidatedInt, ChildT>;
     template <bool inplace>
-    using ReturnIfNotInplace = std::conditional_t<inplace, void, type>;
+    using ReturnIfNotInplace = std::conditional_t<inplace, void, child_type>;
     NativeInt value;
 
     constexpr
-    ValidatedInt(StorageT value) : value(value) {}
+    ValidatedInt(NativeInt value) : value(value) {}
 
     template <bool inplace, NativeInt (*fn)(NativeInt)>
     constexpr
@@ -40,19 +40,19 @@ protected:
     }
 
 public:
-    template <typename OtherStorageT, bool (*other_validator)(NativeInt), typename EnableIfT = std::enable_if<implies<other_validator, validator>()>>
+    template <bool (*other_validator)(NativeInt), typename OtherConversionT, typename EnableIfT = std::enable_if<implies<other_validator, validator>()>>
     constexpr
-    ValidatedInt(ValidatedInt<OtherStorageT, other_validator> other, EnableIfT * = 0)
+    ValidatedInt(ValidatedInt<other_validator, OtherConversionT> other, EnableIfT * = 0)
         : value(other.raw_native_int())
     {}
 
-    [[gnu::always_inline]] static 
-    constexpr
-    Result<type, void> 
+    [[gnu::always_inline]] 
+    static constexpr
+    Result<child_type, void> 
     constructor(NativeInt value)
     {
-        if (!validator(value)) return Result<type, void>::failure();
-        return Result<type, void>::success(type(static_cast<StorageT>(value)));
+        if (!validator(value)) return Result<child_type, void>::failure();
+        return Result<child_type, void>::success(child_type(value));
     }
 
     [[gnu::always_inline]]
@@ -63,14 +63,14 @@ public:
 
     [[gnu::always_inline]]
     constexpr
-    StorageT unwrap() const
+    ConversionT unwrap() const
     {
         return value;    
     }
 
     [[gnu::always_inline]]
     constexpr
-    operator StorageT() const
+    operator ConversionT() const
     {
         return value;
     }
@@ -78,7 +78,7 @@ public:
     template <NativeInt (*fn)(NativeInt)>
     [[nodiscard]]
     constexpr
-    Result<type, void> 
+    Result<child_type, void> 
     transform()
     {
         return ValidatedInt::constructor(fn(value));
@@ -87,51 +87,57 @@ public:
     template <typename Function>
     [[nodiscard]]
     constexpr
-    Result<type, void> 
+    Result<child_type, void> 
     transform(Function fn)
     {
         return ValidatedInt::constructor(fn(value));
     }
 
     [[nodiscard, gnu::flatten]]
-    Result<type, void>
+    Result<child_type, void>
     increment()
     {
         return transform< [](NativeInt i) { return ++i; } >();
     }
 
     [[nodiscard, gnu::flatten]]
-    Result<type, void>
+    Result<child_type, void>
     decrement()
     {
         return transform< [](NativeInt i) { return --i; }>();
     }
 
     [[nodiscard, gnu::flatten]]
-    Result<type, void>
+    Result<child_type, void>
     add(NativeInt other)
     {
         return transform([other](NativeInt i) { return i + other; });
     }
 
     [[nodiscard, gnu::flatten]]
-    Result<type, void>
+    Result<child_type, void>
     subtract(NativeInt other)
     {
         return transform([other](NativeInt i) { return i - other; });
     }
 
     [[nodiscard, gnu::flatten]]
-    Result<type, void>
+    Result<child_type, void>
     multiply(NativeInt other)
     {
         return transform([other](NativeInt i) { return i + other; });
     }
 };
 
-class ValidatedWord : public ValidatedInt<NativeInt, is_mix_word, ValidatedWord>
+class ValidatedWord : public ValidatedInt<is_mix_word, NativeInt, ValidatedWord>
 {
 public:
+    [[gnu::always_inline]]
+    constexpr
+    ValidatedWord(ValidatedInt const &obj)
+        : ValidatedInt(obj)
+    {}
+
     template <bool inplace>
     [[gnu::always_inline]]
     constexpr
