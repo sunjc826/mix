@@ -87,22 +87,6 @@ constexpr
 NativeInt
 native_sign(Sign sign);
 
-union Byte
-{
-    NativeByte byte;
-    Sign sign;
-};
-
-template <size_t size>
-struct ByteConversionResult
-{
-    std::array<Byte, size> bytes;
-    bool overflow;
-};
-
-template <size_t size>
-ByteConversionResult<size> as_bytes(NativeInt value);
-
 #define REMOVE_CONST_FROM_PTR(ptr)\
     const_cast<std::remove_const_t<std::remove_reference_t<decltype(*ptr)>> *>(ptr)
 

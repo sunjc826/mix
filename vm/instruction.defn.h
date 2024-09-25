@@ -1,5 +1,6 @@
 #pragma once
 #include <base/base.h>
+#include <base/validation/v2.h>
 #include <vm/instruction.decl.h>
 #include <vm/machine.decl.h>
 namespace mix

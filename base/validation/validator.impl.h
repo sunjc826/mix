@@ -1,4 +1,5 @@
 #pragma once
+#include "base/function.h"
 #include <base/validation/validator.decl.h>
 #include <base/math.h>
 namespace mix
@@ -10,6 +11,34 @@ bool
 is_exact_value(NativeInt i)
 {
     return value == i;
+}
+
+constexpr
+bool
+is_positive(NativeInt i)
+{
+    return i > 0;
+}
+
+constexpr
+bool
+is_negative(NativeInt i)
+{
+    return i < 0;
+}
+
+constexpr
+bool
+is_nonnegative(NativeInt i)
+{
+    return i >= 0;
+}
+
+constexpr
+bool
+is_nonpositive(NativeInt i)
+{
+    return i <= 0;
 }
 
 template <NativeInt lower_bound, NativeInt upper_bound>
@@ -58,6 +87,14 @@ is_mix_positive_word(NativeInt i)
 
 template <NativeInt literal>
 struct IsExactValue : public ValidatorToFunctor<is_exact_value<literal>> {};
+
+using IsPositive = ValidatorToFunctor<is_positive>;
+
+using IsNegative = ValidatorToFunctor<is_negative>;
+
+using IsNonNegative = ValidatorToFunctor<is_nonnegative>;
+
+using IsNonPositive = ValidatorToFunctor<is_nonpositive>;
 
 template <NativeInt low, NativeInt high>
 struct IsInClosedInterval : public ValidatorToFunctor<is_in_closed_interval<low, high>> {};

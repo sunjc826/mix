@@ -3,12 +3,32 @@
 #include <base/function.h>
 namespace mix
 {
-    
+
 template <NativeInt value>
 [[gnu::always_inline]]
 static constexpr
 bool
 is_exact_value(NativeInt i);
+
+[[gnu::always_inline]]
+static constexpr
+bool
+is_positive(NativeInt i);
+
+[[gnu::always_inline]]
+static constexpr
+bool
+is_negative(NativeInt i);
+
+[[gnu::always_inline]]
+static constexpr
+bool
+is_nonnegative(NativeInt i);
+
+[[gnu::always_inline]]
+static constexpr
+bool
+is_nonpositive(NativeInt i);
 
 template <NativeInt lower_bound, NativeInt upper_bound>
 [[gnu::always_inline]]

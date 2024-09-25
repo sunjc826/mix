@@ -1,10 +1,12 @@
 #pragma once
+#include "base/validation/validator.decl.h"
 #include "base/validation/validator.impl.h"
 #include <base/validation/v2.decl.h>
 #include <base/implies/v3.h>
 #include <base/result.h>
 namespace mix
 {
+struct ValidatedConstructors;
 template <typename StorageT, typename ValidatorT, typename ConversionT, typename ChildT>
 class ValidatedObject
 {
@@ -18,6 +20,9 @@ protected:
 
     constexpr
     explicit ValidatedObject(StorageT value) : value(value) {}
+
+    
+    friend struct ValidatedConstructors;
 
     template <bool inplace, map_func_type fn>
     constexpr
@@ -57,6 +62,13 @@ public:
     {
         if (!validator(value)) return Result<child_type, void>::failure();
         return Result<child_type, void>::success(ValidatedObject(value));
+    }
+
+    template <typename ...HintsT, typename OtherValidatorT, typename OtherConversionT, typename OtherChildT>
+    requires (implies<OtherValidatorT, HintsT..., ValidatorT>())
+    void assign(ValidatedObject<StorageT, OtherValidatorT, OtherConversionT, OtherChildT> const &other)
+    {
+        this->value = other.value;
     }
 
     [[gnu::always_inline]]
@@ -104,12 +116,13 @@ template <typename ValidatorT, typename ConversionT, typename ChildT>
 class ValidatedInt : public ValidatedObject<NativeInt, ValidatorT, ConversionT, std::conditional_t<std::is_void_v<ChildT>, ValidatedInt<ValidatorT, ConversionT, void>, ChildT>>
 {
     using parent_type = ValidatedObject<NativeInt, ValidatorT, ConversionT, std::conditional_t<std::is_void_v<ChildT>, ValidatedInt<ValidatorT, ConversionT, void>, ChildT>>;
-    using child_type = parent_type::child_type;    
+    using child_type = parent_type::child_type;
+
 public:
     template <typename OtherValidatorT, typename OtherConversionT, typename OtherChildT>
     // We need the requires here so that the compiler error when implies fails appears at construction
     requires (implies<OtherValidatorT, ValidatorT>())
-    [[gnu::always_inline]]
+    [[gnu::always_inline, gnu::flatten]]
     constexpr
     ValidatedInt(ValidatedObject<NativeInt, OtherValidatorT, OtherConversionT, OtherChildT> const &obj)
         : /* otherwise the compiler error would appear here ---> */ parent_type(obj)
@@ -149,6 +162,40 @@ public:
     {
         return transform([other](NativeInt i) { return i + other; });
     }
+
+    template <NativeInt divisor, typename T = ValidatorT>
+    requires (std::is_same_v<T, IsNonNegative> && divisor > 0)
+    [[gnu::always_inline]]
+    child_type 
+    divide() const
+    {
+        return this->value / divisor;
+    }
+};
+
+struct ValidatedConstructors
+{
+
+template <NativeInt mod_class>
+requires (is_positive(mod_class))
+[[gnu::always_inline, gnu::flatten]]
+static
+ValidatedInt<IsInClosedInterval<0, mod_class - 1>>
+from_mod(ValidatedNonNegative i)
+{
+    return ValidatedObject<NativeInt, IsInClosedInterval<0, mod_class - 1>>(i.raw_unwrap() % mod_class);
+}
+
+static
+std::tuple<Sign, ValidatedInt<IsNonNegative>>
+from_abs(NativeInt i)
+{
+    if (i < 0)
+        return {s_minus, ValidatedObject<NativeInt, IsNonNegative>(-i)};
+    else
+        return {s_plus, ValidatedObject<NativeInt, IsNonNegative>(i)};
+}
+
 };
 
 class ValidatedWord : public ValidatedInt<IsMixWord, NativeInt, ValidatedWord>

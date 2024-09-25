@@ -29,32 +29,4 @@ sign(NativeInt value)
     return value > 0 ? s_plus : s_minus;
 }
 
-template <size_t size>
-ByteConversionResult<size> as_bytes(NativeInt value)
-{
-    Sign sign;
-    if (value < 0)
-    {
-        sign = s_minus;
-        value = -value;
-    }
-    else
-    {
-        sign = s_plus;
-    }
-
-    ByteConversionResult<size> result;
-    for (size_t s = size; s --> 1;)
-    {
-        result.bytes[s].byte = value % byte_size;
-        value /= byte_size;
-    }
-
-    result.bytes[0].sign = sign;
-    
-    result.overflow = value > 0;
-
-    return result;
-}
-
 }
