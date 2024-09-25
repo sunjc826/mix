@@ -1,5 +1,5 @@
 #pragma once
-#include "base/validation/validator.impl.h"
+#include "check.h"
 #include <base/types.h>
 #include <base/validation/validator.h>
 #include <type_traits>
@@ -74,7 +74,7 @@ struct NonTransitiveImplies
 };
 
 template <typename P, typename Q>
-constexpr bool Implies_v = NonTransitiveImplies<P, Q>::value;
+constexpr bool NonTransitiveImplies_v = NonTransitiveImplies<P, Q>::value;
 
 template <typename ValidatorT1, typename ValidatorT2>
 struct NonTransitiveImplies<And<ValidatorT1, ValidatorT2>, And<ValidatorT2, ValidatorT1>>
@@ -85,7 +85,7 @@ struct NonTransitiveImplies<And<ValidatorT1, ValidatorT2>, And<ValidatorT2, Vali
 template <typename ValidatorT1, typename ValidatorT2, typename ValidatorT3>
 struct NonTransitiveImplies<ValidatorT1, And<ValidatorT2, ValidatorT3>>
 {
-    static constexpr bool value = Implies_v<ValidatorT1, ValidatorT2> && Implies_v<ValidatorT1, ValidatorT3>;
+    static constexpr bool value = NonTransitiveImplies_v<ValidatorT1, ValidatorT2> && NonTransitiveImplies_v<ValidatorT1, ValidatorT3>;
 };
 
 template <NativeInt literal, NativeInt low, NativeInt high>
@@ -115,7 +115,7 @@ consteval bool implies_helper(std::integer_sequence<size_t, Is...> const &)
 template <typename P, typename Q>
 consteval bool implies()
 {
-    if constexpr (Implies_v<P, Q>)
+    if constexpr (NonTransitiveImplies_v<P, Q>)
         return true;
     constexpr size_t sz = std::tuple_size_v<typename DirectImplications<P>::type>;
     if constexpr (sz == 0)
@@ -145,7 +145,7 @@ static_assert(implies<
 
 static_assert(implies<IsExactValue<2>, IsMixPositiveWord>());
 // Unfortunately this won't work
-// It is not possible to get transitivity when Implies_v is used. 
+// It is not possible to get transitivity when NonTransitiveImplies_v is used. 
 // static_assert(implies<IsExactValue<7>, IsMixPositiveWord>());
 
 // However, with some deduction hints, we can do it!

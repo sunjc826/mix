@@ -1,6 +1,8 @@
 #pragma once
+#include "check.h"
 #include <base/types.h>
 #include <base/validation/validator.h>
+
 namespace mix
 {
 

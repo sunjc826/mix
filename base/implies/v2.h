@@ -1,4 +1,5 @@
 #pragma once
+#include "check.h"
 #include <base/types.h>
 #include <base/validation/validator.h>
 #include <type_traits>

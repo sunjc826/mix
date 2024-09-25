@@ -1,5 +1,5 @@
 #pragma once
-#include "base/validation/validator.impl.h"
+#include "check.h"
 #include <base/types.h>
 #include <base/validation/validator.h>
 #include <base/character_set.h>
