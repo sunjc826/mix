@@ -1,5 +1,8 @@
 #pragma once
+#include "base/types.decl.h"
+#include "config.impl.h"
 #include <base/types.h>
+#include <base/validation/types.h>
 
 namespace mix
 {
@@ -68,9 +71,28 @@ struct OwnershipKindContainer<OwnershipKind::owns, T, size>
     static constexpr bool is_view = false;
     static type constructor(std::span<element_type, size> sp)
     {
-        std::array<Byte, bytes_in_word> arr;
-        std::copy(sp.begin(), sp.end(), arr.begin());
-        return arr;
+        if constexpr (size <= bytes_in_extended_word)
+        {
+            // Here, copy elision is possible even for a Validated type.
+            // However note that `constructor_helper` results in a fully "unrolled" `size` assignments,
+            // last I checked on godbolt.
+            return constructor_helper(sp);
+        }
+        else
+        {
+            // This is not allowed for a Validated type as it is not trivially constructible.
+            // We would have to resort to DeferredValue (or even std::optional) which leads to additional copying.
+            std::array<T, bytes_in_word> arr;
+            std::copy(sp.begin(), sp.end(), arr.begin());
+            return arr;
+        }
+    }
+
+private:
+    template <size_t ...Is>
+    static type constructor_helper(std::span<element_type, size> sp, std::index_sequence<Is...>)
+    {
+        return { sp[Is]... };
     }
 };
 
@@ -80,7 +102,7 @@ struct OwnershipKindContainer<OwnershipKind::mutable_view, T, size>
     using element_type = T;
     using type = std::span<element_type, size>;
     static constexpr bool is_view = false;
-    __attribute__((always_inline))
+    [[gnu::always_inline]]
     static type constructor(std::span<element_type, size> sp)
     {
         return sp;
@@ -93,7 +115,7 @@ struct OwnershipKindContainer<OwnershipKind::view, T, size>
     using element_type = T const;
     using type = std::span<element_type, size>;
     static constexpr bool is_view = true;
-    __attribute__((always_inline))
+    [[gnu::always_inline]]
     static type constructor(std::span<element_type, size> sp)
     {
         return sp;

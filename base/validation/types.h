@@ -65,8 +65,10 @@ as_bytes(ValidatedWord word)
 
     result[0].construct(sign);
 
-    // TODO: How to fix this?
-    return result;
+    // As long as we use DeferredValue, 
+    // we will need to give up copy elision,
+    // which is unfortunate.
+    return actualize_reinterpret(result);
 }
 
 
