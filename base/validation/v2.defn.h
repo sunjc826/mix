@@ -118,6 +118,8 @@ class ValidatedInt : public ValidatedObject<NativeInt, ValidatorT, ConversionT, 
     using parent_type = ValidatedObject<NativeInt, ValidatorT, ConversionT, std::conditional_t<std::is_void_v<ChildT>, ValidatedInt<ValidatorT, ConversionT, void>, ChildT>>;
     using child_type = parent_type::child_type;
 
+    template <bool inplace>
+    using ReturnIfNotInplace = std::conditional_t<inplace, void, child_type>;
 public:
     template <typename OtherValidatorT, typename OtherConversionT, typename OtherChildT>
     // We need the requires here so that the compiler error when implies fails appears at construction
@@ -171,6 +173,16 @@ public:
     {
         return this->value / divisor;
     }
+
+    template <bool inplace, typename T = ValidatorT>
+    requires (std::is_same_v<T, IsMixWord>)
+    [[gnu::always_inline]]
+    constexpr
+    ReturnIfNotInplace<inplace>
+    negate()
+    {
+        return transform_unchecked<inplace, [](NativeInt i) { return -i; } >();
+    }  
 };
 
 struct ValidatedConstructors
@@ -196,28 +208,6 @@ from_abs(NativeInt i)
         return {s_plus, ValidatedObject<NativeInt, IsNonNegative>(i)};
 }
 
-};
-
-class ValidatedWord : public ValidatedInt<IsMixWord, NativeInt, ValidatedWord>
-{
-    using parent_type = ValidatedInt<IsMixWord, NativeInt, ValidatedWord>;
-public:
-    template <typename OtherValidatorT, typename OtherConversionT, typename OtherChildT>
-    requires (implies<OtherValidatorT, IsMixWord>())
-    [[gnu::always_inline]]
-    constexpr
-    ValidatedWord(ValidatedObject<NativeInt, OtherValidatorT, OtherConversionT, OtherChildT> const &obj)
-        : parent_type(obj)
-    {}
-
-    template <bool inplace>
-    [[gnu::always_inline]]
-    constexpr
-    ReturnIfNotInplace<inplace> 
-    negate()
-    {
-        return transform_unchecked<inplace, [](NativeInt i) { return -i; } >();
-    }
 };
 
 }

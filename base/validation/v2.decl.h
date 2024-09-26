@@ -23,8 +23,8 @@ using ValidatedAddress = ValidatedInt<IsMixAddress>;
 using ValidatedByte = ValidatedInt<IsMixByte, NativeByte>;
 using ValidatedChar = ValidatedInt<IsMixChar, NativeByte>;
 using ValidatedRegisterIndex = ValidatedInt<IsRegisterIndex, NativeByte>;
-class ValidatedWord;
-using ValidatedPositiveWord = ValidatedInt<IsMixPositiveWord, NativeInt>;
+using ValidatedWord = ValidatedInt<IsMixWord>;
+using ValidatedPositiveWord = ValidatedInt<IsMixPositiveWord>;
 
 
 

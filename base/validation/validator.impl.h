@@ -109,5 +109,33 @@ using IsMixWord = ValidatorToFunctor<is_mix_word>;
 
 using IsMixPositiveWord = ValidatorToFunctor<is_mix_positive_word>;
 
+template <typename ContainerT>
+requires has_empty_method<ContainerT>
+constexpr
+bool
+is_nonempty(ContainerT container)
+{
+    return !container.empty();
+}
+
+template <typename ContainerT>
+requires has_empty_method<ContainerT>
+struct IsNonEmpty : public ValidatorToFunctor<is_nonempty<ContainerT>> {};
+
+template <typename ContainerT, typename ValidatorT>
+requires has_size_method<ContainerT>
+[[gnu::always_inline]]
+static constexpr
+bool
+custom_size_predicate(ContainerT const &container)
+{
+    static ValidatorT const validator;
+    return validator(container.size());
+}
+
+template <typename ContainerT, typename ValidatorT>
+requires has_size_method<ContainerT>
+struct CustomSizePredicate : public ValidatorToFunctor<custom_size_predicate<ContainerT, ValidatorT>> {};
+
 
 }

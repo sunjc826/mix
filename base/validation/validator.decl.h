@@ -1,6 +1,9 @@
 #pragma once
 #include <base/types.h>
 #include <base/function.h>
+
+#include <concepts>
+
 namespace mix
 {
 
@@ -72,5 +75,37 @@ struct And
         return v1(i) && v2(i);
     }
 };
+
+template <typename T>
+concept has_empty_method = requires(T const &t) 
+{ 
+    { 
+        t.empty() 
+    } -> std::same_as<bool>; 
+};
+
+template <typename T>
+concept has_size_method = requires(T const &t) 
+{ 
+    { 
+        t.size() 
+    } -> std::same_as<size_t>; 
+};
+
+
+template <typename ContainerT>
+requires has_empty_method<ContainerT>
+[[gnu::always_inline]]
+static constexpr
+bool
+is_nonempty(ContainerT const &container);
+
+template <typename ContainerT, typename ValidatorT>
+requires has_size_method<ContainerT>
+[[gnu::always_inline]]
+static constexpr
+bool
+custom_size_predicate(ContainerT const &container);
+
 
 }
