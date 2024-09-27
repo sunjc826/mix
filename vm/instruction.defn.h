@@ -47,13 +47,13 @@ struct Instruction : public Word<OwnershipKind::owns>
     // Extracts and returns L and R from F()
     FieldSpec field_spec() const;
 
-    ValidatedWord native_A() const;
+    ValidatedInt<IsInClosedInterval<-(lut[2] - 1), lut[2] - 1>> native_A() const;
 
     // Returns rIi, where i is the value of I()
-    NativeInt native_I_value_or_zero() const;
+    Result<ValidatedInt<IsInClosedInterval<-(lut[2] - 1), lut[2] - 1>>> native_I_value_or_zero() const;
 
     // Returns M = A + rIi
-    ValidatedAddress native_M() const;
+    Result<ValidatedAddress> native_M() const;
 
     // Returns native value of M(F)
     ValidatedWord native_MF() const;

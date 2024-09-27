@@ -230,10 +230,10 @@ add(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClosedInte
 template <NativeInt low, NativeInt high, NativeInt other_low, NativeInt other_high>
 [[nodiscard, gnu::flatten]]
 static 
-ValidatedInt<IsInClosedInterval<std::min({low * low, low * high, high * low, high * high}), std::max({low * low, low * high, high * low, high * high})>>
+ValidatedInt<IsInClosedInterval<std::min({low * other_low, low * other_high, high * other_low, high * other_high}), std::max({low * other_low, low * other_high, high * other_low, high * other_high})>>
 multiply(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClosedInterval<other_low, other_high>> rhs)
 {
-    return ValidatedInt<IsInClosedInterval<std::min({low * low, low * high, high * low, high * high}), std::max({low * low, low * high, high * low, high * high})>>(lhs * rhs);
+    return ValidatedInt<IsInClosedInterval<std::min({low * other_low, low * other_high, high * other_low, high * other_high}), std::max({low * other_low, low * other_high, high * other_low, high * other_high})>>(lhs * rhs);
 }
 
 };
@@ -252,11 +252,5 @@ to_interval(ValidatedInt<IsMixByte> i)
     return ValidatedInt<IsInClosedInterval<0, byte_size - 1>>(i);
 }
 
-inline
-ValidatedInt<IsInClosedInterval<-1, 1>>
-to_interval(Sign sign)
-{
-    return ValidatedInt<IsInClosedInterval<-1, 1>>(sign);
-}
 
 }
