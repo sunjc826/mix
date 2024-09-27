@@ -238,6 +238,24 @@ multiply(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClose
 
 };
 
+
+template <NativeInt low, NativeInt high, NativeInt other_low, NativeInt other_high>
+[[nodiscard, gnu::flatten]]
+static
+ValidatedInt<IsInClosedInterval<low + other_low, high + other_high>>
+operator+(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClosedInterval<other_low, other_high>> rhs)
+{
+    return ValidatedConstructors::add(lhs, rhs);
+}
+
+template <NativeInt low, NativeInt high, NativeInt other_low, NativeInt other_high>
+[[nodiscard, gnu::flatten]]
+ValidatedInt<IsInClosedInterval<low + other_low, high + other_high>>
+operator*(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClosedInterval<other_low, other_high>> rhs)
+{
+    return ValidatedConstructors::multiply(lhs, rhs);
+}
+
 template <NativeInt literal>
 ValidatedInt<IsInClosedInterval<literal, literal>>
 to_interval(ValidatedInt<IsExactValue<literal>> i)

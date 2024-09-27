@@ -30,16 +30,11 @@ ValidatedInt<IsInClosedInterval<-(lut[2] - 1), lut[2] - 1>> Instruction::native_
     ] = A();
 
     return ValidatedInt<IsInClosedInterval<-(lut[2] - 1), lut[2] - 1>>(
-        ValidatedConstructors::multiply(
-            ValidatedConstructors::add(
-                ValidatedConstructors::multiply(
-                    to_interval(b1),
-                    to_interval(validated_byte_size)
-                ),
-                to_interval(b2)
-            ),
-            ValidatedConstructors::from_sign(s)
-        )
+        (
+            (
+                to_interval(b1) * to_interval(validated_byte_size)
+            ) + to_interval(b2)
+        ) * ValidatedConstructors::from_sign(s)
     );
 }
 
@@ -61,7 +56,7 @@ Result<ValidatedAddress> Instruction::native_M() const
     Result<ValidatedInt<IsInClosedInterval<-(lut[2] - 1), lut[2] - 1>>> const offset = native_I_value_or_zero();
     if (!offset)
         return Result<ValidatedAddress>::failure();
-    return ValidatedAddress::constructor(ValidatedConstructors::add(base_address, offset.value()));
+    return ValidatedAddress::constructor(base_address + offset.value());
 }
 
 Word<OwnershipKind::mutable_view> Instruction::M_value() const
