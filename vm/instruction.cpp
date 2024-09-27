@@ -1,4 +1,9 @@
+#include "base/math.impl.h"
+#include "base/validation/v2.defn.h"
+#include "base/validation/validator.impl.h"
+#include "config.impl.h"
 #include <base/base.h>
+#include <base/validation/constants.h>
 #include <vm/instruction.h>
 #include <vm/register.h>
 #include <vm/machine.h>
@@ -15,14 +20,27 @@ void Instruction::update_by_pc()
     std::copy_n(m.memory.begin() + m.pc, bytes_in_word, container.begin());
 }
 
-NativeInt Instruction::native_A() const
+ValidatedWord Instruction::native_A() const
 {
-    auto const [s, b1, b2] = A();
-    NativeInt accumulator = 0;
-    accumulator = accumulator * byte_size + b1;
-    accumulator = accumulator * byte_size + b2;
-    accumulator = accumulator * s;
-    return accumulator;
+    auto const [
+        s, 
+        b1, 
+        b2
+    ] = A();
+
+    ValidatedWord const word = ValidatedInt<IsInClosedInterval<mix_int_min, mix_int_max>>(
+        ValidatedConstructors::multiply(
+            ValidatedConstructors::add(
+                ValidatedConstructors::multiply(
+                    to_interval(b1),
+                    to_interval(validated_byte_size)
+                ),
+                to_interval(b2)
+            ),
+            ValidatedConstructors::from_sign(s)
+        )
+    );
+    return word;
 }
 
 NativeInt Instruction::native_I_value_or_zero() const
@@ -36,7 +54,7 @@ NativeInt Instruction::native_I_value_or_zero() const
     return r.native_value();
 }
 
-NativeInt Instruction::native_M() const
+ValidatedAddress Instruction::native_M() const
 {
     NativeInt const base_address = native_A();
     NativeInt const offset = native_I_value_or_zero();
@@ -47,7 +65,7 @@ NativeInt Instruction::native_M() const
 
 Word<OwnershipKind::mutable_view> Instruction::M_value() const
 {
-    NativeInt address = native_M();
+    ValidatedAddress address = native_M();
     return m.get_memory_word(address);
 }
 
@@ -64,7 +82,7 @@ SliceMutable Instruction::MF() const
     return SliceMutable(value_at_address_M, field_spec());
 }
 
-NativeInt Instruction::native_MF() const
+ValidatedWord Instruction::native_MF() const
 {
     return MF().native_value();
 }

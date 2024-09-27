@@ -1,4 +1,5 @@
 #pragma once
+#include "base/types.decl.h"
 #include <base/math.decl.h>
 namespace mix
 {
@@ -34,6 +35,8 @@ pow(NativeByte base)
 }
 
 constexpr auto lut = pow_lookup_table(byte_size);
+constexpr NativeInt mix_int_max = lut[numerical_bytes_in_word] - 1;
+constexpr NativeInt mix_int_min = -mix_int_max;
 // Every negative MIX integral value must be representable by NativeInt
 static_assert(-(lut.back() - 1) >= std::numeric_limits<NativeInt>::min());
 // Every positive MIX integral value must be representable by NativeInt

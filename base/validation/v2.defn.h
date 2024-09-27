@@ -1,4 +1,5 @@
 #pragma once
+#include "base/types.decl.h"
 #include "base/validation/validator.decl.h"
 #include "base/validation/validator.impl.h"
 #include <base/validation/v2.decl.h>
@@ -181,8 +182,10 @@ public:
     ReturnIfNotInplace<inplace>
     negate()
     {
-        return transform_unchecked<inplace, [](NativeInt i) { return -i; } >();
-    }  
+        return this->transform_unchecked<inplace, [](NativeInt i) { return -i; } >();
+    }
+
+    
 };
 
 struct ValidatedConstructors
@@ -208,6 +211,52 @@ from_abs(NativeInt i)
         return {s_plus, ValidatedObject<NativeInt, IsNonNegative>(i)};
 }
 
+static
+ValidatedInt<IsInClosedInterval<-1, 1>>
+from_sign(Sign s)
+{
+    return ValidatedObject<NativeInt, IsInClosedInterval<-1, 1>>(s);
+}
+
+template <NativeInt low, NativeInt high, NativeInt other_low, NativeInt other_high>
+[[nodiscard, gnu::flatten]]
+static
+ValidatedInt<IsInClosedInterval<low + other_low, high + other_high>>
+add(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClosedInterval<other_low, other_high>> rhs)
+{
+    return ValidatedInt<IsInClosedInterval<low + other_low, high + other_high>>(lhs + rhs);
+}
+
+template <NativeInt low, NativeInt high, NativeInt other_low, NativeInt other_high>
+[[nodiscard, gnu::flatten]]
+static 
+ValidatedInt<IsInClosedInterval<std::min({low * low, low * high, high * low, high * high}), std::max({low * low, low * high, high * low, high * high})>>
+multiply(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClosedInterval<other_low, other_high>> rhs)
+{
+    return ValidatedInt<IsInClosedInterval<std::min({low * low, low * high, high * low, high * high}), std::max({low * low, low * high, high * low, high * high})>>(lhs * rhs);
+}
+
 };
+
+template <NativeInt literal>
+ValidatedInt<IsInClosedInterval<literal, literal>>
+to_interval(ValidatedInt<IsExactValue<literal>> i)
+{
+    return ValidatedInt<IsInClosedInterval<literal, literal>>(i);
+}
+
+inline
+ValidatedInt<IsInClosedInterval<0, byte_size - 1>>
+to_interval(ValidatedInt<IsMixByte> i)
+{
+    return ValidatedInt<IsInClosedInterval<0, byte_size - 1>>(i);
+}
+
+inline
+ValidatedInt<IsInClosedInterval<-1, 1>>
+to_interval(Sign sign)
+{
+    return ValidatedInt<IsInClosedInterval<-1, 1>>(sign);
+}
 
 }

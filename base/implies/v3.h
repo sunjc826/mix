@@ -1,4 +1,6 @@
 #pragma once
+#include "base/math.impl.h"
+#include "base/validation/validator.impl.h"
 #include "check.h"
 #include <base/types.h>
 #include <base/validation/validator.h>
@@ -6,6 +8,13 @@
 
 namespace mix
 {
+
+// https://stackoverflow.com/questions/25958259/how-do-i-find-out-if-a-tuple-contains-a-type
+template <typename T, typename Tuple>
+struct has_type;
+
+template <typename T, typename... Us>
+struct has_type<T, std::tuple<Us...>> : std::disjunction<std::is_same<T, Us>...> {};
 
 template <typename P>
 struct DirectImplications
@@ -28,6 +37,11 @@ struct DirectImplications<argument_type<void(P)>::type> \
     using type = std::tuple<__VA_ARGS__>; \
 };
 
+template <typename P, typename Q>
+constexpr bool has_edge = has_type<P, typename DirectImplications<Q>::type>::value;
+template <typename P, typename Q>
+constexpr bool has_bidirectional_edge = has_edge<P, Q> && has_edge<Q, P>;
+
 IMPLIES(IsExactValue<0>, IsInClosedInterval<0, 6>)
 
 IMPLIES(IsExactValue<1>, IsInClosedInterval<0, 6>)
@@ -44,33 +58,29 @@ IMPLIES(IsExactValue<6>, IsInClosedInterval<0, 6>)
 
 IMPLIES((IsInClosedInterval<0, 6>), IsRegisterIndex)
 
-IMPLIES(IsRegisterIndex, IsMixByte)
+IMPLIES(IsRegisterIndex, IsInClosedInterval<0, 6>, IsMixByte)
 
 IMPLIES((IsInClosedInterval<0, byte_size - 1>), IsMixByte)
 
-IMPLIES(IsMixByte, IsMixAddress)
+IMPLIES(IsMixByte, IsInClosedInterval<0, byte_size - 1>, IsMixAddress)
 
 IMPLIES((IsInClosedInterval<0, 3999>), IsMixAddress)
 
-IMPLIES(IsMixAddress, IsMixPositiveWord)
+IMPLIES(IsMixAddress, IsInClosedInterval<0, 3999>, IsMixPositiveWord)
 
 IMPLIES(IsMixPositiveWord, IsMixWord, IsPositive)
+
+IMPLIES((IsInClosedInterval<mix_int_min, mix_int_max>), IsMixWord)
 
 IMPLIES(IsPositive, IsNonNegative)
 
 #undef IMPLIES
 
-// https://stackoverflow.com/questions/25958259/how-do-i-find-out-if-a-tuple-contains-a-type
-template <typename T, typename Tuple>
-struct has_type;
-
-template <typename T, typename... Us>
-struct has_type<T, std::tuple<Us...>> : std::disjunction<std::is_same<T, Us>...> {};
 
 template <typename P, typename Q>
 struct NonTransitiveImplies
 {
-    static constexpr bool value = std::is_same_v<P, Q> || has_type<Q, typename DirectImplications<P>::type>::value;
+    static constexpr bool value = std::is_same_v<P, Q> || has_edge<P, Q>;
 };
 
 template <typename P, typename Q>
@@ -101,30 +111,60 @@ struct NonTransitiveImplies<IsInClosedInterval<low1, high1>, IsInClosedInterval<
 };
 
 
-template <typename from, typename to>
-consteval bool implies();
+
 namespace details
 {
-template <typename from, typename to, size_t ... Is>
-consteval bool implies_helper(std::integer_sequence<size_t, Is...> const &)
+
+template <typename to, typename from, typename LastNodeT>
+consteval 
+bool 
+implies_impl();
+
+template <typename to, typename from, typename LastNodeT, size_t ...Is>
+consteval 
+bool 
+implies_helper(std::integer_sequence<size_t, Is...> const &)
 {
-   return (implies<std::tuple_element_t<Is, typename DirectImplications<from>::type>, to>() or ...);
+   return 
+    (
+        // If we trace the full path, the compiler will die from template recursion...
+        // Thus, we only trace up to 1 node, so we can detect trivial if-and-only-if relationships.
+        (
+            !std::is_same_v<std::tuple_element_t<Is, typename DirectImplications<from>::type>, LastNodeT>
+            and 
+            implies_impl<to, std::tuple_element_t<Is, typename DirectImplications<from>::type>, from>()
+        )
+        or 
+        ...
+    );
+}
+
+template <typename to, typename from, typename LastNodeT>
+consteval
+bool
+implies_impl()
+{
+    if constexpr (NonTransitiveImplies_v<from, to>)
+        return true;
+    constexpr size_t sz = std::tuple_size_v<typename DirectImplications<from>::type>;
+    if constexpr (sz == 0)
+        return false;
+    return implies_helper<to, from, LastNodeT>(std::make_integer_sequence<size_t, sz>());
 }
 }
 
 template <typename P, typename Q>
-consteval bool implies()
+consteval
+bool
+implies()
 {
-    if constexpr (NonTransitiveImplies_v<P, Q>)
-        return true;
-    constexpr size_t sz = std::tuple_size_v<typename DirectImplications<P>::type>;
-    if constexpr (sz == 0)
-        return false;
-    return details::implies_helper<P, Q>(std::make_integer_sequence<size_t, sz>());
+   return details::implies_impl<Q, P, void>();
 }
 
 template <typename P, typename Q, typename FirstHintT, typename ...HintsT>
-consteval bool implies()
+consteval 
+bool 
+implies()
 {
     if constexpr (implies<P, FirstHintT>() && implies<FirstHintT, Q, HintsT...>())
         return true;
@@ -154,6 +194,9 @@ static_assert(implies<
     IsMixPositiveWord,
     IsInClosedInterval<0, 3999>
 >());
+
+static_assert(implies<IsRegisterIndex, IsInClosedInterval<0, 6>>());
+static_assert(implies<IsRegisterIndex, IsInClosedInterval<0, 3099>>());
 
 }
 
