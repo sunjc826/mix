@@ -1,5 +1,6 @@
 #pragma once
 #include <base/base.h>
+#include <base/validation/constants.h>
 #include <vm/register.decl.h>
 namespace mix 
 {
@@ -29,14 +30,15 @@ struct Register
         : reg(reg)
     {}
    
-    template <typename EnableIfT = std::enable_if<is_signed, RegisterWithoutSign<size - 1>>>
-    EnableIfT::type unsigned_register() const;
+    template <typename = void>
+    requires (is_signed)
+    RegisterWithoutSign<size - 1> unsigned_register() const;
 
     std::span<Byte> get_span() { return reg; }
 
     std::conditional_t<is_signed, Sign &, Sign> sign();
     Sign sign() const;
-    NativeInt native_sign() const;
+    ValidatedInt<IsInClosedInterval<-1, 1>> native_sign() const;
 
     IntMutable<is_signed, size> value();
     IntMutable<false, unsigned_size_v> unsigned_value();
@@ -44,13 +46,14 @@ struct Register
     IntView<is_signed, size> value() const;
     IntView<false, unsigned_size_v> unsigned_value() const;
 
-    NativeInt native_value() const;
-    NativeInt native_unsigned_value() const;
+    ValidatedInt<IsInClosedInterval<-(lut[unsigned_size_v] - 1), lut[unsigned_size_v] - 1>> native_value() const;
+    ValidatedInt<IsInClosedInterval<0, lut[unsigned_size_v] - 1>> native_unsigned_value() const;
 
     void load(std::span<Byte const, size> sp);
 
-    template <typename EnableIfT = std::enable_if<is_signed, void>>
-    EnableIfT::type load(Sign sign, std::span<Byte const, size - 1> sp);
+    template <typename = void>
+    requires (is_signed)
+    void load(Sign sign, std::span<Byte const, size - 1> sp);
 
     // Returns whether the load overflows
     template <bool throw_on_overflow>
@@ -61,11 +64,11 @@ struct Register
         if constexpr (is_signed)
         {
             reg[0].sign = sign; 
-            std::fill(reg.begin() + 1, reg.end(), Byte{.byte = 0});
+            std::fill(reg.begin() + 1, reg.end(), Byte{.byte = zero});
         }
         else
         {
-            std::fill(reg.begin(), reg.end(), Byte{.byte = 0});
+            std::fill(reg.begin(), reg.end(), Byte{.byte = zero});
         }
     }
 
@@ -102,7 +105,7 @@ struct RegisterWithoutSign final
     IntMutable<false, size> unsigned_value();
     IntView<false, size> unsigned_value() const;
 
-    NativeInt native_unsigned_value() const;
+    ValidatedInt<IsInClosedInterval<0, lut[size] - 1>> native_unsigned_value() const;
 
     void store(Sign sign, SliceMutable slice) const;
 };

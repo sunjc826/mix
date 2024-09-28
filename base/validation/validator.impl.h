@@ -125,11 +125,11 @@ struct IsNonEmpty : public ValidatorToFunctor<is_nonempty<ContainerT>> {};
 template <typename ContainerT, typename ValidatorT>
 requires has_size_method<ContainerT>
 [[gnu::always_inline]]
-static constexpr
+inline constexpr
 bool
 custom_size_predicate(ContainerT const &container)
 {
-    static ValidatorT const validator;
+    ValidatorT const validator;
     return validator(container.size());
 }
 

@@ -10,7 +10,7 @@ CXX := g++
 
 FLAGS +=
 CFLAGS +=
-CXXFLAGS += -std=c++20 -Werror
+CXXFLAGS += -std=c++20 -Werror -fdiagnostics-color=always
 LDFLAGS +=
 OBJECT_FLAGS := -c -I'$(SRC_DIR)' -I'$(SRC_DIR)'/external
 OBJECT_CFLAGS :=
@@ -36,7 +36,7 @@ STATIC_LIB_TARGETS :=
 OBJECT_LIB_TARGETS := simulator assembler
 PSEUDO_TARGETS := linenoise
 
-simulator_PRIVATE_SOURCES := instruction.cpp register.cpp machine.cpp
+simulator_PRIVATE_SOURCES := vm/instruction.cpp vm/register.cpp vm/machine.cpp
 
 assembler_PRIVATE_SOURCES := assembler.cpp
 

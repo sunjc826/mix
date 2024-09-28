@@ -62,10 +62,6 @@ using Validator = bool (*)(NativeInt);
 template <bool (*validator)(NativeInt)>
 using ValidatorConstant = std::integral_constant<bool (*)(NativeInt), validator>;
 
-static inline __attribute__((always_inline))
-void 
-check_address_bounds(NativeInt value);
-
 // prefer enum over enum class
 enum Sign : NativeByte
 {
@@ -81,11 +77,6 @@ operator-(Sign sign)
     if (sign == s_plus) return s_minus;
     else return s_plus;
 }
-
-static __attribute__((always_inline))
-constexpr
-NativeInt
-native_sign(Sign sign);
 
 #define REMOVE_CONST_FROM_PTR(ptr)\
     const_cast<std::remove_const_t<std::remove_reference_t<decltype(*ptr)>> *>(ptr)

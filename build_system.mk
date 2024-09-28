@@ -76,9 +76,12 @@ $(TARGET)_BINARY:=
 
 endef
 
+prepend_build_dir = $(addprefix $(BUILD_DIR)/,$(1))
+prepend_source_dir = $(addprefix $(SRC_DIR)/,$(1))
+
 define make_relocatable_object
 ifneq ($(strip $($(TARGET)_C_OBJECTS)),)
-$(call prepend_build_dir,$($(TARGET)_C_OBJECTS)): $(call prepend_build_dir,%.o) : %.c
+$(call prepend_build_dir,$($(TARGET)_C_OBJECTS)): $(call prepend_build_dir,%.o) : $(call prepend_source_dir,%.c)
 	$(CC) -o $$@ \
 	$(FLAGS) \
 	$(CFLAGS) \
@@ -96,7 +99,7 @@ $(call prepend_build_dir,$($(TARGET)_C_OBJECTS)): $(call prepend_build_dir,%.o) 
 endif
 
 ifneq ($(strip $($(TARGET)_CXX_OBJECTS)),)
-$(call prepend_build_dir,$($(TARGET)_CXX_OBJECTS)): $(call prepend_build_dir,%.o) : %.cpp
+$(call prepend_build_dir,$($(TARGET)_CXX_OBJECTS)): $(call prepend_build_dir,%.o) : $(call prepend_source_dir,%.cpp)
 	$(CXX) -o $$@ \
 	$(FLAGS) \
 	$(CXXFLAGS) \
@@ -137,8 +140,6 @@ debug_$(TARGET):
 	@echo
 
 endef
-
-prepend_build_dir = $(addprefix $(BUILD_DIR)/,$(1))
 
 define make_targets
 ifneq ($($(TARGET)_BINARY),)

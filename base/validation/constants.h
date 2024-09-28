@@ -1,5 +1,4 @@
-#include "base/validation/v2.decl.h"
-#include "config.impl.h"
+#pragma once
 #include <base/validation/v2.h>
 namespace mix
 {

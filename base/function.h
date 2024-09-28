@@ -7,6 +7,7 @@ namespace mix
 template <typename ReturnT, typename ArgT, ReturnT (*fn)(ArgT)>
 struct FuncToFunctor
 {
+    [[gnu::flatten]]
     constexpr ReturnT operator()(ArgT i) const
     {
         return fn(i);

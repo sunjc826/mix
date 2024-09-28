@@ -4,14 +4,15 @@
 namespace mix
 {
 template <OwnershipKind kind, bool is_signed, size_t size>
-NativeInt IntegralContainer<kind, is_signed, size>::native_sign() const
+ValidatedInt<IsInClosedInterval<-1, 1>> IntegralContainer<kind, is_signed, size>::native_sign() const
 {
-    return mix::native_sign(sign());
+    return ValidatedConstructors::from_sign(sign());
 }
 
 template <OwnershipKind kind, bool is_signed, size_t size>
-template <typename EnableIfT>
-EnableIfT::type IntegralContainer<kind, is_signed, size>::sign()
+template <typename>
+requires (!IntegralContainer<kind, is_signed, size>::is_view)
+std::conditional_t<is_signed, Sign &, Sign> IntegralContainer<kind, is_signed, size>::sign()
 {
     if constexpr(is_signed)
         return container[0].sign;
@@ -29,7 +30,11 @@ std::conditional_t<is_signed, Sign const &, Sign> IntegralContainer<kind, is_sig
 }
 
 template <OwnershipKind kind, bool is_signed, size_t size>
-NativeInt IntegralContainer<kind, is_signed, size>::native_value() const
+ std::conditional_t<
+    size == std::dynamic_extent,
+    std::type_identity<NativeInt>,
+    typename IntegralContainer<kind, is_signed, size>::TypeHolder
+>::type IntegralContainer<kind, is_signed, size>::native_value() const
 {
     NativeInt accum = 0;
     for (size_t i = is_signed; i < container.size(); i++)

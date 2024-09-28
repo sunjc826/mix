@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <memory>
+#include <type_traits>
 #include <utility>
 namespace mix
 {
@@ -19,8 +20,11 @@ struct DeferredValue
 
     template <typename ...Args>
     void construct(Args &&...args)
-    {
-        std::construct_at(reinterpret_cast<T *>(buf), std::forward<Args>(args)...);
+    {   
+        if constexpr (std::is_constructible_v<T, Args...>)
+            std::construct_at(reinterpret_cast<T *>(buf), std::forward<Args>(args)...);
+        else
+            new (buf) T { std::forward<Args>(args)... };
     }
 
     operator T const &() const

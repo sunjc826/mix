@@ -9,58 +9,58 @@ namespace mix
 
 template <NativeInt value>
 [[gnu::always_inline]]
-static constexpr
+inline constexpr
 bool
 is_exact_value(NativeInt i);
 
 [[gnu::always_inline]]
-static constexpr
+inline constexpr
 bool
 is_positive(NativeInt i);
 
 [[gnu::always_inline]]
-static constexpr
+inline constexpr
 bool
 is_negative(NativeInt i);
 
 [[gnu::always_inline]]
-static constexpr
+inline constexpr
 bool
 is_nonnegative(NativeInt i);
 
 [[gnu::always_inline]]
-static constexpr
+inline constexpr
 bool
 is_nonpositive(NativeInt i);
 
 template <NativeInt lower_bound, NativeInt upper_bound>
 [[gnu::always_inline]]
-static constexpr
+inline constexpr
 bool
 is_in_closed_interval(NativeInt i);
 
 [[gnu::always_inline]]
-static constexpr
+inline constexpr
 bool
 is_mix_byte(NativeInt i);
 
 [[gnu::always_inline]]
-static constexpr
+inline constexpr
 bool
 is_register_index(NativeInt i);
 
 [[gnu::always_inline]]
-static constexpr
+inline constexpr
 bool
 is_mix_address(NativeInt i);
 
 [[gnu::always_inline]]
-static constexpr
+inline constexpr
 bool
 is_mix_word(NativeInt i);
 
 [[gnu::always_inline]]
-static constexpr
+inline constexpr
 bool
 is_mix_positive_word(NativeInt i);
 
@@ -96,14 +96,14 @@ concept has_size_method = requires(T const &t)
 template <typename ContainerT>
 requires has_empty_method<ContainerT>
 [[gnu::always_inline]]
-static constexpr
+inline constexpr
 bool
 is_nonempty(ContainerT const &container);
 
 template <typename ContainerT, typename ValidatorT>
 requires has_size_method<ContainerT>
 [[gnu::always_inline]]
-static constexpr
+inline constexpr
 bool
 custom_size_predicate(ContainerT const &container);
 

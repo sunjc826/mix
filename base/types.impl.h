@@ -3,23 +3,6 @@
 namespace mix
 {
 
-// TODO: change to use Result datatype instead of throwing exceptions
-void 
-check_address_bounds(NativeInt value)
-{
-    if (value < 0)
-        throw std::runtime_error("Negative address");
-    else if (value >= main_memory_size)
-        throw std::runtime_error("Overflowing address");
-}
-
-constexpr 
-NativeInt 
-native_sign(Sign sign)
-{
-    return sign == s_plus ? 1 : -1; 
-}
-
 constexpr 
 Sign
 sign(NativeInt value)

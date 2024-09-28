@@ -18,7 +18,7 @@ IntView<false, size> RegisterWithoutSign<size>::unsigned_value() const
 }
 
 template <size_t size>
-NativeInt RegisterWithoutSign<size>::native_unsigned_value() const
+ValidatedInt<IsInClosedInterval<0, lut[size] - 1>> RegisterWithoutSign<size>::native_unsigned_value() const
 {
     return unsigned_value().native_value();
 }
@@ -29,8 +29,9 @@ void RegisterWithoutSign<size>::store(Sign sign, SliceMutable slice) const
 }
 
 template <bool is_signed, size_t size>
-template <typename EnableIfT>
-EnableIfT::type Register<is_signed, size>::unsigned_register() const
+template <typename>
+requires (is_signed)
+RegisterWithoutSign<size - 1> Register<is_signed, size>::unsigned_register() const
 {
     return RegisterWithoutSign<size - 1>(std::span<Byte, size - 1>(reg.begin() + 1, reg.end()));
 }
@@ -51,9 +52,9 @@ Sign Register<is_signed, size>::sign() const
 }
 
 template <bool is_signed, size_t size>
-NativeInt Register<is_signed, size>::native_sign() const
+ValidatedInt<IsInClosedInterval<-1, 1>> Register<is_signed, size>::native_sign() const
 {
-    return mix::native_sign(sign());
+    return ValidatedConstructors::from_sign(sign());
 }
 
 template <bool is_signed, size_t size>
@@ -81,13 +82,13 @@ IntView<false, Register<is_signed, size>::unsigned_size_v> Register<is_signed, s
 }
 
 template <bool is_signed, size_t size>
-NativeInt Register<is_signed, size>::native_value() const
+ValidatedInt<IsInClosedInterval<-(lut[ Register<is_signed, size>::unsigned_size_v] - 1), lut[ Register<is_signed, size>::unsigned_size_v] - 1>> Register<is_signed, size>::native_value() const
 {
     return value().native_value();
 }
 
 template <bool is_signed, size_t size>
-NativeInt Register<is_signed, size>::native_unsigned_value() const
+ValidatedInt<IsInClosedInterval<0, lut[Register<is_signed, size>::unsigned_size_v] - 1>> Register<is_signed, size>::native_unsigned_value() const
 {
     return unsigned_value().native_value();
 }
@@ -116,8 +117,9 @@ std::conditional_t<throw_on_overflow, void, bool> Register<is_signed, size>::loa
 }
 
 template <bool is_signed, size_t size>
-template <typename EnableIfT>
-EnableIfT::type Register<is_signed, size>::load(Sign sign, std::span<Byte const, size - 1> sp)
+template <typename>
+requires (is_signed)
+void Register<is_signed, size>::load(Sign sign, std::span<Byte const, size - 1> sp)
 {
     reg[0].sign = sign;
     std::copy(sp.begin(), sp.end(), reg.begin() + 1);
@@ -148,7 +150,7 @@ void Register<is_signed, size>::shift_left(NativeInt shift_by)
         reg[i] = reg[i + shift_by];
 
     for (; i < size;)
-        reg[i] = Byte{.byte = 0};
+        reg[i] = Byte{.byte = zero};
 }
 
 template <bool is_signed, size_t size>
@@ -162,7 +164,7 @@ void Register<is_signed, size>::shift_right(NativeInt shift_by)
         reg[i] = reg[i - shift_by];
 
     for (; i --> numerical_first_idx;)
-        reg[i] = Byte{.byte = 0};
+        reg[i] = Byte{.byte = zero};
 }
 
 template <bool is_signed, size_t size>

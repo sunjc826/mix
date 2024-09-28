@@ -1,5 +1,6 @@
 #pragma once
 #include "base/types.decl.h"
+#include "base/validation/validator.impl.h"
 #include "config.impl.h"
 #include <base/types.h>
 #include <base/validation/types.h>
@@ -126,6 +127,7 @@ template <OwnershipKind kind, bool is_signed, size_t size>
 struct IntegralContainer
 {
     using Container = OwnershipKindContainer<kind, Byte, bytes_in_word>;
+    static constexpr bool is_view = Container::is_view;
     typename Container::type container;
     // If there is a sign byte, then the total number of bytes must > 1,
     // since there must be at least 1 numerical byte.
@@ -146,13 +148,15 @@ struct IntegralContainer
         : container(Container::constructor(std::span<typename Container::element_type, size>(arr.begin(), arr.size())))
     {}
 
-    template <typename EnableIfT = std::enable_if<kind == OwnershipKind::view || kind == OwnershipKind::mutable_view>>
-    IntegralContainer(IntegralContainer<OwnershipKind::owns, is_signed, size> &w, EnableIfT::type * = 0)
+    template <typename T = void>
+    requires (kind == OwnershipKind::view || kind == OwnershipKind::mutable_view)
+    IntegralContainer(IntegralContainer<OwnershipKind::owns, is_signed, size> &w)
         : container(Container::constructor(w.container))
     {}
 
-    template <typename EnableIfT = std::enable_if<kind == OwnershipKind::view>>
-    IntegralContainer(IntegralContainer<OwnershipKind::mutable_view, is_signed, size> const &w, EnableIfT::type * = 0)
+    template <typename T = void>
+    requires (kind == OwnershipKind::view)
+    IntegralContainer(IntegralContainer<OwnershipKind::mutable_view, is_signed, size> const &w)
         : container(Container::constructor(w.container))
     {}
 
@@ -187,14 +191,23 @@ struct IntegralContainer
             throw std::runtime_error("Overflow");
     }
 
-    NativeInt native_sign() const;
+    ValidatedInt<IsInClosedInterval<-1, 1>> native_sign() const;
 
-    template <typename EnableIfT = std::enable_if<!Container::is_view, std::conditional_t<is_signed, Sign &, Sign>>>
-    EnableIfT::type sign();
+    template <typename = void>
+    requires (!is_view)
+    std::conditional_t<is_signed, Sign &, Sign> sign();
 
     std::conditional_t<is_signed, Sign const &, Sign> sign() const;
 
-    NativeInt native_value() const;
+    struct TypeHolder
+    {
+        using type = ValidatedInt<IsInClosedInterval<-(lut[unsigned_size] - 1), lut[unsigned_size] - 1>>;
+    };
+    std::conditional_t<
+        size == std::dynamic_extent,
+        std::type_identity<NativeInt>,
+        TypeHolder
+    >::type native_value() const;
 };
 
 template <OwnershipKind kind>
@@ -221,72 +234,46 @@ struct Slice
         : sp(slice.sp), spec(slice.spec)
     {}
 
-    // Slice(Word<OwnershipKind::owns> &word)
-    //     : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
-    // {}
-
-    // Slice(Word<OwnershipKind::mutable_view> const &word)
-    //     : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
-    // {}
-
-    // template <typename EnableIfT = std::enable_if<!is_view, Word<OwnershipKind::view> const &>>
-    // Slice(EnableIfT::type word)
-    //     : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
-    // {}
-
-    // Slice(Word<OwnershipKind::owns> &word, FieldSpec spec)
-    //     : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container).subspan(spec.L, spec.length())), spec(spec)
-    // {}
-
-    // Slice(Word<OwnershipKind::mutable_view> const &word, FieldSpec spec)
-    //     : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container).subspan(spec.L, spec.length())), spec(spec)
-    // {}
-
-    // template <typename EnableIfT = std::enable_if<!is_view, Word<OwnershipKind::view> const &>>
-    // Slice(EnableIfT::type word, FieldSpec spec)
-    //     : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container).subspan(spec.L, spec.length())), spec(spec)
-    // {}
-
     template <size_t size>
+    requires (size < 8)
     Slice(IntegralContainer<OwnershipKind::owns, true, size> &i)
         : sp(std::span<PossiblyConstByte, size>(i.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
     {
-        static_assert(size < 8);
     }
 
     template <size_t size>
+    requires (size < 8)
     Slice(IntegralContainer<OwnershipKind::mutable_view, true, size> const &i)
         : sp(std::span<PossiblyConstByte, size>(i.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
     {
-        static_assert(size < 8);
     }
 
     template <size_t size>
+    requires (size < 8)
     Slice(IntegralContainer<OwnershipKind::owns, true, size> &word, FieldSpec spec)
         : sp(std::span<PossiblyConstByte, bytes_in_word>(word.container).subspan(spec.L, spec.length())), spec(spec)
     {
-        static_assert(size < 8);
     }
 
     template <size_t size>
+    requires (size < 8)
     Slice(IntegralContainer<OwnershipKind::mutable_view, true, size> const &i, FieldSpec spec)
         : sp(std::span<PossiblyConstByte, size>(i.container).subspan(spec.L, spec.length())), spec(spec)
     {
-        static_assert(size < 8);
     }
 
     template <size_t size, typename EnableIfT = std::enable_if<!is_view>>
+    requires (size < 8)
     Slice(IntegralContainer<OwnershipKind::view, true, size> const &word, FieldSpec spec, EnableIfT * = 0)
         : sp(std::span<PossiblyConstByte, size>(word.container).subspan(spec.L, spec.length())), spec(spec)
     {
-        static_assert(size < 8);
     }
 
     template <size_t size, typename EnableIfT = std::enable_if<!is_view>>
+    requires (size < 8)
     Slice(IntegralContainer<OwnershipKind::view, true, size> const &i, EnableIfT * = 0)
         : sp(std::span<PossiblyConstByte, size>(i.container)), spec{.L = 0, .R = static_cast<NativeByte>(sp.size())}
     {
-        static_assert(size < 8);
     }
 
    

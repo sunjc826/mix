@@ -36,16 +36,16 @@ protected:
             return child_type(fn(value));
     }
 
-    template <bool inplace, typename Function>
-    constexpr
-    ReturnIfNotInplace<inplace>
-    transform_unchecked(Function fn)
-    {
-        if constexpr(inplace)
-            value = fn(value);
-        else
-            return child_type(fn(value));
-    }
+    // template <bool inplace, typename Function>
+    // constexpr
+    // ReturnIfNotInplace<inplace>
+    // transform_unchecked(Function fn)
+    // {
+    //     if constexpr(inplace)
+    //         value = fn(value);
+    //     else
+    //         return child_type(fn(value));
+    // }
 
 public:
     template <typename OtherValidatorT, typename OtherConversionT, typename OtherChildT>
@@ -135,14 +135,14 @@ public:
     Result<child_type, void>
     increment()
     {
-        return transform< [](NativeInt i) { return ++i; } >();
+        return this->template transform<[](NativeInt i) { return ++i; }>();
     }
 
     [[nodiscard, gnu::flatten]]
     Result<child_type, void>
     decrement()
     {
-        return transform< [](NativeInt i) { return --i; } >();
+        return this->template transform< [](NativeInt i) { return --i; } >();
     }
 
     [[nodiscard, gnu::flatten]]
@@ -182,10 +182,10 @@ public:
     ReturnIfNotInplace<inplace>
     negate()
     {
-        return this->transform_unchecked<inplace, [](NativeInt i) { return -i; } >();
+        return this->template transform_unchecked<inplace, [](NativeInt i) { return -i; } >();
     }
 
-    
+    friend void test (ValidatedWord word);
 };
 
 struct ValidatedConstructors
@@ -215,7 +215,7 @@ static
 ValidatedInt<IsInClosedInterval<-1, 1>>
 from_sign(Sign s)
 {
-    return ValidatedObject<NativeInt, IsInClosedInterval<-1, 1>>(s);
+    return ValidatedObject<NativeInt, IsInClosedInterval<-1, 1>>(s == s_plus ? 1 : -1);
 }
 
 template <NativeInt low, NativeInt high, NativeInt other_low, NativeInt other_high>
@@ -233,7 +233,7 @@ static
 ValidatedInt<IsInClosedInterval<std::min({low * other_low, low * other_high, high * other_low, high * other_high}), std::max({low * other_low, low * other_high, high * other_low, high * other_high})>>
 multiply(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClosedInterval<other_low, other_high>> rhs)
 {
-    return ValidatedInt<IsInClosedInterval<std::min({low * other_low, low * other_high, high * other_low, high * other_high}), std::max({low * other_low, low * other_high, high * other_low, high * other_high})>>(lhs * rhs);
+    return ValidatedObject<NativeInt, IsInClosedInterval<std::min({low * other_low, low * other_high, high * other_low, high * other_high}), std::max({low * other_low, low * other_high, high * other_low, high * other_high})>>(lhs.raw_unwrap() * rhs.raw_unwrap());
 }
 
 };
@@ -250,7 +250,7 @@ operator+(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClos
 
 template <NativeInt low, NativeInt high, NativeInt other_low, NativeInt other_high>
 [[nodiscard, gnu::flatten]]
-ValidatedInt<IsInClosedInterval<low + other_low, high + other_high>>
+decltype(auto)
 operator*(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClosedInterval<other_low, other_high>> rhs)
 {
     return ValidatedConstructors::multiply(lhs, rhs);

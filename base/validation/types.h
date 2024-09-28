@@ -1,4 +1,5 @@
 #pragma once
+#include "base/validation/v2.decl.h"
 #include <base/types.h>
 #include <base/deferred_value.h>
 #include <base/validation/v2.h>
@@ -8,6 +9,10 @@ union Byte
 {
     ValidatedByte byte;
     Sign sign;
+    [[gnu::always_inline]]
+    Byte(ValidatedByte byte) : byte(byte) {}
+    [[gnu::always_inline]]
+    Byte(Sign sign) : sign(sign) {}
 };
 
 template <size_t size>
