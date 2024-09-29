@@ -57,13 +57,13 @@ as_bytes(ValidatedWord word)
     auto const [
         sign, 
         abs_value
-    ] = ValidatedConstructors::from_abs(word);
+    ] = ValidatedUtils::from_abs(word);
     ValidatedNonNegative value = abs_value;
 
     std::array<DeferredValue<Byte>, bytes_in_word> result;
     for (size_t s = result.size(); s --> 1;)
     {
-        ValidatedBounded<0, byte_size - 1> const residue = ValidatedConstructors::from_mod<byte_size>(value);
+        ValidatedBounded<0, byte_size - 1> const residue = ValidatedUtils::from_mod<byte_size>(value);
         result[s].construct(residue);
         value = value.divide<byte_size>();
     }

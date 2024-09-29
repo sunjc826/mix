@@ -1,4 +1,5 @@
 #pragma once
+#include "base/validation/v2.decl.h"
 #include <base/base.h>
 #include <base/validation/v2.h>
 #include <vm/instruction.decl.h>
@@ -23,9 +24,9 @@ struct Instruction : public Word<OwnershipKind::owns>
         return { container[0].sign, container[1].byte, container[2].byte };
     }
 
-    ValidatedByte I() const
+    Result<ValidatedIValue> I() const
     {
-        return container[3].byte;
+        return ValidatedIValue::constructor(container[3].byte);
     }
 
     // Returns *M, where * represents dereferencing

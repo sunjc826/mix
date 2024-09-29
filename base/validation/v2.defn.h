@@ -9,7 +9,7 @@
 #include <type_traits>
 namespace mix
 {
-struct ValidatedConstructors;
+struct ValidatedUtils;
 template <typename StorageT, typename ValidatorT, typename ConversionT, typename ChildT>
 class ValidatedObject
 {
@@ -25,7 +25,7 @@ protected:
     explicit ValidatedObject(StorageT value) : value(value) {}
 
     
-    friend struct ValidatedConstructors;
+    friend struct ValidatedUtils;
 
     template <bool inplace, map_func_type fn>
     constexpr
@@ -95,6 +95,11 @@ public:
         return value;
     }
 
+    operator ValidatedObject<StorageT, ValidatorT>() const
+    {
+        return this->raw_unwrap();
+    }
+
     template <map_func_type fn>
     [[nodiscard]]
     constexpr
@@ -112,7 +117,6 @@ public:
     {
         return child_type::constructor(fn(value));
     }
-
 };
 
 template <typename ValidatorT, typename ConversionT, typename ChildT>
@@ -132,6 +136,19 @@ public:
     ValidatedInt(ValidatedObject<NativeInt, OtherValidatorT, OtherConversionT, OtherChildT> const &obj)
         : /* otherwise the compiler error would appear here ---> */ parent_type(obj)
     {}
+    
+    // template <typename OtherConversionT, typename OtherChildT>
+    // operator ValidatedObject<NativeInt, ValidatorT, OtherConversionT, OtherChildT>() const
+    // {
+    //     return this->raw_unwrap();
+    // }
+
+    // using parent_type::operator ValidatedObject<NativeInt, ValidatorT>;
+    using raw_type = ValidatedObject<NativeInt, ValidatorT>;
+    operator raw_type() const
+    {
+
+    }
 
     [[nodiscard, gnu::flatten]]
     Result<child_type, void>
@@ -186,11 +203,9 @@ public:
     {
         return this->template transform_unchecked<inplace, [](NativeInt i) { return -i; } >();
     }
-
-    friend void test (ValidatedWord word);
 };
 
-struct ValidatedConstructors
+struct ValidatedUtils
 {
 
 template <NativeInt mod_class>
@@ -238,6 +253,24 @@ multiply(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClose
     return ValidatedObject<NativeInt, IsInClosedInterval<std::min({low * other_low, low * other_high, high * other_low, high * other_high}), std::max({low * other_low, low * other_high, high * other_low, high * other_high})>>(lhs.raw_unwrap() * rhs.raw_unwrap());
 }
 
+template <typename Func1, typename Func2, typename StorageT, typename ValidatorT1, typename ValidatorT2>
+static
+std::common_type_t<
+    decltype(std::declval<Func1>()(std::declval<ValidatedObject<StorageT, ValidatorT1>>())),
+    decltype(std::declval<Func2>()(std::declval<ValidatedObject<StorageT, ValidatorT2>>()))
+>
+visit(
+    ValidatedObject<StorageT, Or<ValidatorT1, ValidatorT2>> obj,
+    Func1 func1,
+    Func2 func2
+)
+{
+    if (ValidatorT1()(obj))
+        return func1(ValidatedObject<StorageT, ValidatorT1>(obj));
+    else
+        return func2(ValidatedObject<StorageT, ValidatorT2>(obj));
+}
+
 };
 
 
@@ -247,7 +280,7 @@ static
 ValidatedInt<IsInClosedInterval<low + other_low, high + other_high>>
 operator+(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClosedInterval<other_low, other_high>> rhs)
 {
-    return ValidatedConstructors::add(lhs, rhs);
+    return ValidatedUtils::add(lhs, rhs);
 }
 
 template <NativeInt low, NativeInt high, NativeInt other_low, NativeInt other_high>
@@ -255,7 +288,7 @@ template <NativeInt low, NativeInt high, NativeInt other_low, NativeInt other_hi
 decltype(auto)
 operator*(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClosedInterval<other_low, other_high>> rhs)
 {
-    return ValidatedConstructors::multiply(lhs, rhs);
+    return ValidatedUtils::multiply(lhs, rhs);
 }
 
 template <NativeInt literal>

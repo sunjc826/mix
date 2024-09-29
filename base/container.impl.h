@@ -6,7 +6,7 @@ namespace mix
 template <OwnershipKind kind, bool is_signed, size_t size>
 ValidatedInt<IsInClosedInterval<-1, 1>> IntegralContainer<kind, is_signed, size>::native_sign() const
 {
-    return ValidatedConstructors::from_sign(sign());
+    return ValidatedUtils::from_sign(sign());
 }
 
 template <OwnershipKind kind, bool is_signed, size_t size>

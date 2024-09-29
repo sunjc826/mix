@@ -1,3 +1,5 @@
+#include "base/validation/v2.decl.h"
+#include "base/validation/v2.defn.h"
 #include <base/base.h>
 #include <vm/instruction.h>
 #include <vm/machine.h>
@@ -107,12 +109,14 @@ void Machine::do_num()
 
 void Machine::do_char()
 {
-    NativeInt unsigned_value = rA.native_unsigned_value();
+    static constexpr ValidatedLiteral<30> thirty = ValidatedLiteral<30>::constructor(30).value();
+    ValidatedNonNegative unsigned_value = rA.native_unsigned_value();
+    // ValidatedUtils::from_mod<10>(unsigned_value);
     for (size_t i = rX.reg.size(); i --> 1; unsigned_value /= 10)
-        rX.reg[i].byte = 30 + unsigned_value % 10;
+        rX.reg[i].byte = ValidatedInt<IsInClosedInterval<0, byte_size - 1>>(to_interval(thirty) + ValidatedUtils::from_mod<10>(unsigned_value));
 
     for (size_t i = rA.reg.size(); i --> 1; unsigned_value /= 10)
-        rA.reg[i].byte = 30 + unsigned_value % 10;
+        rA.reg[i].byte = ValidatedInt<IsInClosedInterval<0, byte_size - 1>>(to_interval(thirty) + ValidatedUtils::from_mod<10>(unsigned_value));
 
     if (unsigned_value > 0)
         std::cerr << "Warning: overflow in CHAR";

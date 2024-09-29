@@ -1,11 +1,13 @@
 #pragma once
 #include <memory>
+#include <utility>
 namespace mix
 {
 
 template <typename Value, typename Error = void>
 class Result
 {
+    static const auto identity_error_transform = [](Error error) {return error;};
     bool is_success_;
     union
     {
@@ -93,6 +95,29 @@ public:
     }
     */
 
+    template <typename ValueTransformT, typename ErrorTransformT>
+    Result<decltype(ValueTransformT::operator()(std::declval<Value>())), decltype(ErrorTransformT::operator()(std::declval<Error>()))> 
+    transform(ValueTransformT &&value_transform, ErrorTransformT &&error_transform = identity_error_transform)
+    {
+        using ResultType = Result<decltype(ValueTransformT::operator()(std::declval<Value>())), decltype(ErrorTransformT::operator()(std::declval<Error>()))>;
+        if (is_success_)
+            return ResultType::success(value_transform(value_));
+        else
+            return ResultType::failure(error_transform(error_));
+    }
+
+    template <typename ValueTransformT>
+    Result<decltype(ValueTransformT::operator()(std::declval<Value>())), void> 
+    transform_value(ValueTransformT &&value_transform)
+    {
+        using ResultType = Result<decltype(ValueTransformT::operator()(std::declval<Value>()))>;
+        if (is_success_)
+            return ResultType::success(value_transform(value_));
+        else
+            return ResultType::failure();
+    }
+
+
     constexpr
     ~Result()
     {
@@ -106,6 +131,7 @@ public:
 template <typename Error>
 class Result<void, Error>
 {
+    static const auto identity_error_transform = [](Error error) {return error;};
     bool is_success_;
     union
     {
@@ -157,6 +183,17 @@ public:
     Error const &error() const
     {
         return REMOVE_CONST_FROM_PTR(this)->error();
+    }
+
+    template <typename ValueTransformT, typename ErrorTransformT>
+    Result<void, decltype(ErrorTransformT::operator()(std::declval<Error>()))> 
+    transform(ErrorTransformT &&error_transform = identity_error_transform)
+    {
+        using ResultType = Result<void, decltype(ErrorTransformT::operator()(std::declval<Error>()))>;
+        if (is_success_)
+            return ResultType::success();
+        else
+            return ResultType::failure(error_transform(error_));
     }
 
     constexpr
@@ -238,6 +275,28 @@ public:
     }
     */
 
+    template <typename ValueTransformT, typename ErrorT>
+    Result<decltype(ValueTransformT::operator()(std::declval<Value>())), ErrorT> 
+    transform(ValueTransformT &&value_transform, ErrorT error) const
+    {
+        using ResultType = Result<decltype(ValueTransformT::operator()(std::declval<Value>())), ErrorT>;
+        if (is_success_)
+            return ResultType::success(value_transform(value_));
+        else
+            return ResultType::failure(error);
+    }
+
+    template <typename ValueTransformT>
+    Result<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))> 
+    transform_value(ValueTransformT &&value_transform) const
+    {
+        using ResultType = Result<decltype(ValueTransformT::operator()(std::declval<Value>()))>;
+        if (is_success_)
+            return ResultType::success(value_transform(value_));
+        else
+            return ResultType::failure();
+    }
+
     constexpr
     ~Result()
     {
@@ -279,6 +338,18 @@ public:
     {
         return is_success();
     }
+};
+
+template <typename T>
+struct IsResult
+{
+    static constexpr bool value = false;
+};
+
+template <typename ValueT, typename ErrorT>
+struct IsResult<Result<ValueT, ErrorT>>
+{
+    static constexpr bool value = true;
 };
 
 }

@@ -1,9 +1,3 @@
-#include "base/container.decl.h"
-#include "base/math.impl.h"
-#include "base/validation/v2.decl.h"
-#include "base/validation/v2.defn.h"
-#include "base/validation/validator.impl.h"
-#include "config.impl.h"
 #include <base/base.h>
 #include <base/validation/constants.h>
 #include <vm/instruction.h>
@@ -35,20 +29,24 @@ ValidatedInt<IsInClosedInterval<-(lut[2] - 1), lut[2] - 1>> Instruction::native_
             (
                 to_interval(b1) * to_interval(validated_byte_size)
             ) + to_interval(b2)
-        ) * ValidatedConstructors::from_sign(s)
+        ) * ValidatedUtils::from_sign(s)
     );
 }
 
 Result<ValidatedInt<IsInClosedInterval<-(lut[2] - 1), lut[2] - 1>>> Instruction::native_I_value_or_zero() const
 {
-    using ResultType = Result<ValidatedInt<IsInClosedInterval<-(lut[2] - 1), lut[2] - 1>>>;
-    NativeByte const b3 = I();
-    if (b3 == 0)
-        return ResultType::success(zero);
-    if (b3 >= 6)
-        return ResultType::failure();
-    IndexRegister const &r = m.get_index_register(b3);
-    return ResultType::success(r.native_value());
+    return I().transform_value([this](ValidatedIValue idx) {
+        return ValidatedUtils::visit(
+            ValidatedIValue::raw_type(idx),
+            [](ValidatedInt<IsExactValue<0>>){ 
+                return zero; 
+            },
+            [this](ValidatedInt<IsRegisterIndex> idx) { 
+                IndexRegister const &r = m.get_index_register(idx); 
+                return r.native_value(); 
+            }
+        );
+    });
 }
 
 Result<ValidatedAddress> Instruction::native_M() const

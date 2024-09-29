@@ -54,7 +54,7 @@ Sign Register<is_signed, size>::sign() const
 template <bool is_signed, size_t size>
 ValidatedInt<IsInClosedInterval<-1, 1>> Register<is_signed, size>::native_sign() const
 {
-    return ValidatedConstructors::from_sign(sign());
+    return ValidatedUtils::from_sign(sign());
 }
 
 template <bool is_signed, size_t size>
