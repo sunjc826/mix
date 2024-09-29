@@ -56,8 +56,11 @@ static_assert(representable_values_v<NativeByte> >= byte_size);
 // require that NativeInt is large enough to hold the largest value of 
 // any representable integral value.
 using NativeInt = long long;
-
-using Validator = bool (*)(NativeInt);
+template <typename T>
+using PassByValueOrRef = std::conditional_t<std::is_trivially_copyable_v<T> && sizeof(T) <= 16, T, T const &>;
+template <typename T>
+using Validator = bool (*)(PassByValueOrRef<T>);
+using IntValidator = Validator<NativeInt>;
 
 template <bool (*validator)(NativeInt)>
 using ValidatorConstant = std::integral_constant<bool (*)(NativeInt), validator>;

@@ -109,6 +109,6 @@ is_mix_char(NativeInt ch)
     return ch <= 55;
 }
 
-using IsMixChar = ValidatorToFunctor<is_mix_char>;
+using IsMixChar = IntValidatorToFunctor<is_mix_char>;
 
 }

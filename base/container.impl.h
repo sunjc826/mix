@@ -10,8 +10,8 @@ ValidatedInt<IsInClosedInterval<-1, 1>> IntegralContainer<kind, is_signed, size>
 }
 
 template <OwnershipKind kind, bool is_signed, size_t size>
-template <typename>
-requires (!IntegralContainer<kind, is_signed, size>::is_view)
+template <typename SelfT>
+requires (!SelfT::is_view)
 std::conditional_t<is_signed, Sign &, Sign> IntegralContainer<kind, is_signed, size>::sign()
 {
     if constexpr(is_signed)

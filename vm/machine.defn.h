@@ -104,8 +104,10 @@ class Machine
     IT(JumpRegister, rJ, __VA_ARGS__) \
     IT(ZeroRegister, rZ, __VA_ARGS__)
 
+
 #define REGISTER_DECLARATION_ITERATOR(TYPE, REG, ...) TYPE REG;
     REGISTER_LIST(REGISTER_DECLARATION_ITERATOR)
+    
 #undef REGISTER_DECLARATION_ITERATOR
     ExtendedRegister rAX{rA, rX};
 
@@ -115,6 +117,8 @@ class Machine
         REGISTER_LIST(REGISTER_ENUM_ITERATOR)
 #undef REGISTER_ENUM_ITERATOR
     };
+
+    std::array<IndexRegister, 6> index_registers = { rI1, rI2, rI3, rI4, rI5, rI6 };
 
     bool halted;
 
@@ -129,17 +133,18 @@ class Machine
 
     Instruction inst{*this}; // current instruction
 
-    __attribute__((always_inline)) inline
+    [[gnu::always_inline]] inline
     void update_current_instruction();
 
-    __attribute__((always_inline)) inline
+    [[gnu::always_inline]] inline
     void increment_pc();
 
-    __attribute__((always_inline)) inline
-    std::optional<std::reference_wrapper<IndexRegister>> get_index_register(NativeByte index);
+    [[gnu::always_inline]] inline
+    IndexRegister &
+    get_index_register(ValidatedRegisterIndex index);
 
-    __attribute__((always_inline)) inline
-    Word<OwnershipKind::mutable_view> get_memory_word(NativeInt address);
+    [[gnu::always_inline]] inline
+    Word<OwnershipKind::mutable_view> get_memory_word(ValidatedAddress address);
 
     template <NativeByte test_op_code = 0>
     __attribute__((flatten))

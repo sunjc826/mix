@@ -1,4 +1,5 @@
 #pragma once
+#include "base/validation/validator.impl.h"
 #include "check.h"
 #include <base/types.h>
 #include <base/validation/validator.h>
@@ -22,6 +23,7 @@ using ValidatedBounded = ValidatedInt<IsInClosedInterval<low, high>>;
 using ValidatedAddress = ValidatedInt<IsMixAddress>;
 using ValidatedByte = ValidatedInt<IsMixByte, NativeByte>;
 using ValidatedChar = ValidatedInt<IsMixChar, NativeByte>;
+using ValidatedIValue = ValidatedInt<Or<IsExactValue<0>, IsRegisterIndex>>;
 using ValidatedRegisterIndex = ValidatedInt<IsRegisterIndex, NativeByte>;
 using ValidatedWord = ValidatedInt<IsMixWord>;
 using ValidatedPositiveWord = ValidatedInt<IsMixPositiveWord>;

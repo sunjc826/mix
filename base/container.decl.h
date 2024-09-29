@@ -193,8 +193,8 @@ struct IntegralContainer
 
     ValidatedInt<IsInClosedInterval<-1, 1>> native_sign() const;
 
-    template <typename = void>
-    requires (!is_view)
+    template <typename SelfT = IntegralContainer>
+    requires (!SelfT::is_view)
     std::conditional_t<is_signed, Sign &, Sign> sign();
 
     std::conditional_t<is_signed, Sign const &, Sign> sign() const;
@@ -230,6 +230,10 @@ struct Slice
     std::span<PossiblyConstByte> sp;
     FieldSpec spec;
 
+    Slice(Slice const &slice) = default;
+
+    template <typename = void>
+    requires (is_view)
     Slice(Slice<false> const &slice)
         : sp(slice.sp), spec(slice.spec)
     {}

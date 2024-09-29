@@ -29,7 +29,7 @@ struct Instruction : public Word<OwnershipKind::owns>
     }
 
     // Returns *M, where * represents dereferencing
-    Word<OwnershipKind::mutable_view> M_value() const;
+    Result<Word<OwnershipKind::mutable_view>> M_value() const;
 
     ValidatedByte F() const
     {
@@ -37,7 +37,7 @@ struct Instruction : public Word<OwnershipKind::owns>
     }
 
     // Returns M(F)
-    SliceMutable MF() const;
+    Result<SliceMutable> MF() const;
 
     ValidatedByte C() const
     {
@@ -56,10 +56,10 @@ struct Instruction : public Word<OwnershipKind::owns>
     Result<ValidatedAddress> native_M() const;
 
     // Returns native value of M(F)
-    ValidatedWord native_MF() const;
+    Result<ValidatedWord> native_MF() const;
     // Same as native M(F)
     [[gnu::flatten]]
-    ValidatedWord native_V() const { return native_MF(); }
+    Result<ValidatedWord> native_V() const { return native_MF(); }
 };
 
 }

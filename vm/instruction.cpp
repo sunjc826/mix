@@ -1,3 +1,4 @@
+#include "base/container.decl.h"
 #include "base/math.impl.h"
 #include "base/validation/v2.decl.h"
 #include "base/validation/v2.defn.h"
@@ -46,7 +47,7 @@ Result<ValidatedInt<IsInClosedInterval<-(lut[2] - 1), lut[2] - 1>>> Instruction:
         return ResultType::success(zero);
     if (b3 >= 6)
         return ResultType::failure();
-    IndexRegister const &r = *m.get_index_register(b3);
+    IndexRegister const &r = m.get_index_register(b3);
     return ResultType::success(r.native_value());
 }
 
@@ -59,10 +60,12 @@ Result<ValidatedAddress> Instruction::native_M() const
     return ValidatedAddress::constructor(base_address + offset.value());
 }
 
-Word<OwnershipKind::mutable_view> Instruction::M_value() const
+Result<Word<OwnershipKind::mutable_view>> Instruction::M_value() const
 {
-    ValidatedAddress address = native_M();
-    return m.get_memory_word(address);
+    using ResultType = Result<Word<OwnershipKind::mutable_view>>;
+    Result<ValidatedAddress> const address = native_M();
+    if (!address) { return ResultType::failure(); }
+    return ResultType::success(m.get_memory_word(address.value()));
 }
 
 // (L:R) is 8L + R
@@ -72,15 +75,22 @@ FieldSpec Instruction::field_spec() const
     return FieldSpec::from_byte(field);
 }
 
-SliceMutable Instruction::MF() const
+Result<SliceMutable> Instruction::MF() const
 {
-    Word<OwnershipKind::mutable_view> const value_at_address_M = M_value();
-    return SliceMutable(value_at_address_M, field_spec());
+    using ResultType = Result<SliceMutable>;
+    Result<Word<OwnershipKind::mutable_view>> const value_at_address_M = M_value();
+    if (!value_at_address_M)
+        return ResultType::failure();
+    return ResultType::success(SliceMutable(value_at_address_M.value(), field_spec()));
 }
 
-ValidatedWord Instruction::native_MF() const
+Result<ValidatedWord> Instruction::native_MF() const
 {
-    return MF().native_value();
+    using ResultType = Result<ValidatedWord>;
+    Result<SliceMutable> slice = MF();
+    if (!slice)
+        return ResultType::failure();
+    return ResultType::success(slice.value().native_value());
 }
 
 }

@@ -9,10 +9,10 @@ namespace mix
 // v2 allows arbitrary DAGS
 // No cycles though.
 
-template <Validator P>
+template <IntValidator P>
 struct DirectImplications
 {
-    static constexpr std::array<Validator, 0> implications = {};
+    static constexpr std::array<IntValidator, 0> implications = {};
 };
 
 #define IMPLIES(P, ...) \
@@ -49,18 +49,18 @@ IMPLIES(is_mix_positive_word, is_mix_word)
 
 #undef IMPLIES
 
-template <Validator from, Validator to>
+template <IntValidator from, IntValidator to>
 consteval bool implies();
 namespace details
 {
-template <Validator from, Validator to, size_t ... Is>
+template <IntValidator from, IntValidator to, size_t ... Is>
 consteval bool implies_helper(std::integer_sequence<size_t, Is...> const &)
 {
    return (implies<DirectImplications<from>::implications[Is], to>() or ...);
 }
 }
 
-template <Validator from, Validator to>
+template <IntValidator from, IntValidator to>
 consteval bool implies()
 {
     if constexpr(from == to)

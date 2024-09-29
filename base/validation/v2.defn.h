@@ -5,6 +5,8 @@
 #include <base/validation/v2.decl.h>
 #include <base/implies/v3.h>
 #include <base/result.h>
+#include <string_view>
+#include <type_traits>
 namespace mix
 {
 struct ValidatedConstructors;
@@ -18,7 +20,7 @@ protected:
     template <bool inplace>
     using ReturnIfNotInplace = std::conditional_t<inplace, void, child_type>;
     StorageT value;
-
+    
     constexpr
     explicit ValidatedObject(StorageT value) : value(value) {}
 
@@ -270,5 +272,13 @@ to_interval(ValidatedInt<IsMixByte> i)
     return ValidatedInt<IsInClosedInterval<0, byte_size - 1>>(i);
 }
 
+template <typename T>
+inline constexpr bool is_trivial_for_purposes_of_calls = 
+    std::is_trivially_copy_constructible_v<T> &&
+    std::is_trivially_move_constructible_v<T> &&
+    std::is_trivially_destructible_v<T>;
+
+static_assert(is_trivial_for_purposes_of_calls<ValidatedObject<std::string_view, CustomSizePredicate<std::string_view, IsExactValue<5>>>>);
+static_assert(is_trivial_for_purposes_of_calls<ValidatedWord>);
 
 }

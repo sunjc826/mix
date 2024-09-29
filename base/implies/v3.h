@@ -1,5 +1,6 @@
 #pragma once
 #include "base/math.impl.h"
+#include "base/validation/validator.decl.h"
 #include "base/validation/validator.impl.h"
 #include "check.h"
 #include <base/types.h>
@@ -22,11 +23,45 @@ struct DirectImplications
     using type = std::tuple<>;
 };
 
+// To emphasize that void doesn't imply anything
+template <>
+struct DirectImplications<void>
+{
+    using type = std::tuple<>;
+};
+
 template <typename ValidatorT1, typename ValidatorT2>
 struct DirectImplications<And<ValidatorT1, ValidatorT2>>
 {
     using type = std::tuple<ValidatorT1, ValidatorT2>;
 }; 
+
+// https://stackoverflow.com/questions/41200299/common-types-in-two-typesets-tuples
+template <typename S1, typename S2>
+struct intersect
+{
+    template <std::size_t... Indices>
+    static constexpr auto make_intersection(std::index_sequence<Indices...> ) {
+
+        return std::tuple_cat(
+            std::conditional_t<
+                has_type<
+                    std::tuple_element_t<Indices, S1>,
+                    S2
+                    >::value,
+                    std::tuple<std::tuple_element_t<Indices, S1>>,
+                    std::tuple<>
+
+        >{}...);
+    }
+    using type = decltype(make_intersection(std::make_index_sequence<std::tuple_size<S1>::value>{}));
+};
+
+template <typename ValidatorT1, typename ValidatorT2>
+struct DirectImplications<Or<ValidatorT1, ValidatorT2>>
+{
+    using type = std::tuple<intersect<typename DirectImplications<ValidatorT1>::type, typename DirectImplications<ValidatorT2>::type>>;
+};
 
 template<typename T> struct argument_type;
 template<typename T, typename U> struct argument_type<T(U)> { typedef U type; };
@@ -42,23 +77,21 @@ constexpr bool has_edge = has_type<P, typename DirectImplications<Q>::type>::val
 template <typename P, typename Q>
 constexpr bool has_bidirectional_edge = has_edge<P, Q> && has_edge<Q, P>;
 
-IMPLIES(IsExactValue<0>, IsInClosedInterval<0, 6>)
+IMPLIES(IsExactValue<1>, IsInClosedInterval<1, 6>)
 
-IMPLIES(IsExactValue<1>, IsInClosedInterval<0, 6>)
+IMPLIES(IsExactValue<2>, IsInClosedInterval<1, 6>)
 
-IMPLIES(IsExactValue<2>, IsInClosedInterval<0, 6>)
+IMPLIES(IsExactValue<3>, IsInClosedInterval<1, 6>)
 
-IMPLIES(IsExactValue<3>, IsInClosedInterval<0, 6>)
+IMPLIES(IsExactValue<4>, IsInClosedInterval<1, 6>)
 
-IMPLIES(IsExactValue<4>, IsInClosedInterval<0, 6>)
+IMPLIES(IsExactValue<5>, IsInClosedInterval<1, 6>)
 
-IMPLIES(IsExactValue<5>, IsInClosedInterval<0, 6>)
+IMPLIES(IsExactValue<6>, IsInClosedInterval<1, 6>)
 
-IMPLIES(IsExactValue<6>, IsInClosedInterval<0, 6>)
+IMPLIES((IsInClosedInterval<1, 6>), IsRegisterIndex)
 
-IMPLIES((IsInClosedInterval<0, 6>), IsRegisterIndex)
-
-IMPLIES(IsRegisterIndex, IsInClosedInterval<0, 6>, IsMixByte)
+IMPLIES(IsRegisterIndex, IsInClosedInterval<1, 6>, IsMixByte)
 
 IMPLIES((IsInClosedInterval<0, byte_size - 1>), IsMixByte)
 
@@ -90,6 +123,12 @@ template <typename ValidatorT1, typename ValidatorT2>
 struct NonTransitiveImplies<And<ValidatorT1, ValidatorT2>, And<ValidatorT2, ValidatorT1>>
 {
     static constexpr bool value = true;
+};
+
+template <typename ValidatorT1, typename ValidatorT2, typename ValidatorT3>
+struct NonTransitiveImplies<Or<ValidatorT1, ValidatorT2>, ValidatorT3>
+{
+    static constexpr bool value = NonTransitiveImplies_v<ValidatorT1, ValidatorT3> && NonTransitiveImplies_v<ValidatorT2, ValidatorT3>;
 };
 
 template <typename ValidatorT1, typename ValidatorT2, typename ValidatorT3>

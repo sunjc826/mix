@@ -14,13 +14,13 @@ namespace mix
 // ValidatedInt<validator = P> to ValidatedInt<validator = Q3>
 // will not succeed.
 
-template <Validator P, Validator Q>
+template <IntValidator P, IntValidator Q>
 struct Implies
 {
     static constexpr bool value = false;
 };
 
-template <Validator P, Validator Q>
+template <IntValidator P, IntValidator Q>
 constexpr bool Implies_v = Implies<P, Q>::value;
 
 #define IMPLIES(...) \

@@ -14,10 +14,10 @@ struct FuncToFunctor
     }
 };
 
-template <typename ArgT, bool (*fn)(ArgT)>
-using BoolFuncToFunctor = FuncToFunctor<bool, ArgT, fn>;
+template <typename ArgT, Validator<ArgT> fn>
+using ValidatorToFunctor = FuncToFunctor<bool, ArgT, fn>;
 
-template <Validator fn>
-using ValidatorToFunctor = BoolFuncToFunctor<NativeInt, fn>;
+template <IntValidator fn>
+using IntValidatorToFunctor = ValidatorToFunctor<NativeInt, fn>;
 
 }

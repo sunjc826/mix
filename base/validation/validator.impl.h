@@ -1,4 +1,5 @@
 #pragma once
+#include "base/types.decl.h"
 #include <base/function.h>
 #include <base/validation/validator.decl.h>
 #include <base/math.h>
@@ -61,7 +62,7 @@ constexpr
 bool 
 is_register_index(NativeInt i)
 {
-    return 0 <= i && i <= 6;
+    return 1 <= i && i <= 6;
 }
 
 constexpr
@@ -86,28 +87,28 @@ is_mix_positive_word(NativeInt i)
 }
 
 template <NativeInt literal>
-struct IsExactValue : public ValidatorToFunctor<is_exact_value<literal>> {};
+struct IsExactValue : public IntValidatorToFunctor<is_exact_value<literal>> {};
 
-using IsPositive = ValidatorToFunctor<is_positive>;
+using IsPositive = IntValidatorToFunctor<is_positive>;
 
-using IsNegative = ValidatorToFunctor<is_negative>;
+using IsNegative = IntValidatorToFunctor<is_negative>;
 
-using IsNonNegative = ValidatorToFunctor<is_nonnegative>;
+using IsNonNegative = IntValidatorToFunctor<is_nonnegative>;
 
-using IsNonPositive = ValidatorToFunctor<is_nonpositive>;
+using IsNonPositive = IntValidatorToFunctor<is_nonpositive>;
 
 template <NativeInt low, NativeInt high>
-struct IsInClosedInterval : public ValidatorToFunctor<is_in_closed_interval<low, high>> {};
+struct IsInClosedInterval : public IntValidatorToFunctor<is_in_closed_interval<low, high>> {};
 
-using IsMixByte = ValidatorToFunctor<is_mix_byte>;
+using IsMixByte = IntValidatorToFunctor<is_mix_byte>;
 
-using IsRegisterIndex = ValidatorToFunctor<is_register_index>;
+using IsRegisterIndex = IntValidatorToFunctor<is_register_index>;
 
-using IsMixAddress = ValidatorToFunctor<is_mix_address>;
+using IsMixAddress = IntValidatorToFunctor<is_mix_address>;
 
-using IsMixWord = ValidatorToFunctor<is_mix_word>;
+using IsMixWord = IntValidatorToFunctor<is_mix_word>;
 
-using IsMixPositiveWord = ValidatorToFunctor<is_mix_positive_word>;
+using IsMixPositiveWord = IntValidatorToFunctor<is_mix_positive_word>;
 
 template <typename ContainerT>
 requires has_empty_method<ContainerT>
@@ -120,22 +121,21 @@ is_nonempty(ContainerT container)
 
 template <typename ContainerT>
 requires has_empty_method<ContainerT>
-struct IsNonEmpty : public ValidatorToFunctor<is_nonempty<ContainerT>> {};
+struct IsNonEmpty : public IntValidatorToFunctor<is_nonempty<ContainerT>> {};
 
 template <typename ContainerT, typename ValidatorT>
 requires has_size_method<ContainerT>
 [[gnu::always_inline]]
 inline constexpr
 bool
-custom_size_predicate(ContainerT const &container)
+custom_size_predicate(PassByValueOrRef<ContainerT> container)
 {
-    ValidatorT const validator;
-    return validator(container.size());
+    return ValidatorT()(container.size());
 }
 
 template <typename ContainerT, typename ValidatorT>
 requires has_size_method<ContainerT>
-struct CustomSizePredicate : public ValidatorToFunctor<custom_size_predicate<ContainerT, ValidatorT>> {};
+struct CustomSizePredicate : public ValidatorToFunctor<ContainerT, custom_size_predicate<ContainerT, ValidatorT>> {};
 
 
 }
