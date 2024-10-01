@@ -109,10 +109,10 @@ void Machine::do_num()
 
 void Machine::do_char()
 {
-    static constexpr ValidatedLiteral<30> thirty = ValidatedLiteral<30>::constructor(30).value();
+    static constexpr auto thirty = from_literal<30>();
+    static constexpr auto ten = from_literal<10>();
     ValidatedNonNegative unsigned_value = rA.native_unsigned_value();
-    // ValidatedUtils::from_mod<10>(unsigned_value);
-    for (size_t i = rX.reg.size(); i --> 1; unsigned_value /= 10)
+    for (size_t i = rX.reg.size(); i --> 1; unsigned_value /= ten)
         rX.reg[i].byte = ValidatedInt<IsInClosedInterval<0, byte_size - 1>>(to_interval(thirty) + ValidatedUtils::from_mod<10>(unsigned_value));
 
     for (size_t i = rA.reg.size(); i --> 1; unsigned_value /= 10)

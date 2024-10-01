@@ -241,7 +241,7 @@ static
 ValidatedInt<IsInClosedInterval<low + other_low, high + other_high>>
 add(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClosedInterval<other_low, other_high>> rhs)
 {
-    return ValidatedInt<IsInClosedInterval<low + other_low, high + other_high>>(lhs + rhs);
+    return ValidatedObject<NativeInt, IsInClosedInterval<low + other_low, high + other_high>>(lhs + rhs);
 }
 
 template <NativeInt low, NativeInt high, NativeInt other_low, NativeInt other_high>
@@ -251,6 +251,27 @@ ValidatedInt<IsInClosedInterval<std::min({low * other_low, low * other_high, hig
 multiply(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClosedInterval<other_low, other_high>> rhs)
 {
     return ValidatedObject<NativeInt, IsInClosedInterval<std::min({low * other_low, low * other_high, high * other_low, high * other_high}), std::max({low * other_low, low * other_high, high * other_low, high * other_high})>>(lhs.raw_unwrap() * rhs.raw_unwrap());
+}
+
+static
+ValidatedNonNegative
+add(ValidatedNonNegative lhs, ValidatedNonNegative rhs)
+{
+    return ValidatedObject<NativeInt, IsNonNegative>(lhs + rhs);
+}
+
+static
+ValidatedNonNegative
+multiply(ValidatedNonNegative lhs, ValidatedNonNegative rhs)
+{
+    return ValidatedObject<NativeInt, IsNonNegative>(lhs * rhs);
+}
+
+static
+ValidatedNonNegative
+divide(ValidatedNonNegative lhs, ValidatedNonNegative rhs)
+{
+    return ValidatedObject<NativeInt, IsNonNegative>(lhs / rhs);
 }
 
 template <typename Func1, typename Func2, typename StorageT, typename ValidatorT1, typename ValidatorT2>
@@ -276,7 +297,6 @@ visit(
 
 template <NativeInt low, NativeInt high, NativeInt other_low, NativeInt other_high>
 [[nodiscard, gnu::flatten]]
-static
 ValidatedInt<IsInClosedInterval<low + other_low, high + other_high>>
 operator+(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClosedInterval<other_low, other_high>> rhs)
 {
@@ -291,6 +311,28 @@ operator*(ValidatedInt<IsInClosedInterval<low, high>> lhs, ValidatedInt<IsInClos
     return ValidatedUtils::multiply(lhs, rhs);
 }
 
+inline
+decltype(auto)
+operator+(ValidatedNonNegative lhs, ValidatedNonNegative rhs)
+{
+    return ValidatedUtils::add(lhs, rhs);
+}
+
+inline
+decltype(auto)
+operator*(ValidatedNonNegative lhs, ValidatedNonNegative rhs)
+{
+    return ValidatedUtils::multiply(lhs, rhs);
+}
+
+inline
+decltype(auto)
+operator/(ValidatedNonNegative lhs, ValidatedNonNegative rhs)
+{
+    return ValidatedUtils::divide(lhs, rhs);
+}
+
+
 template <NativeInt literal>
 ValidatedInt<IsInClosedInterval<literal, literal>>
 to_interval(ValidatedInt<IsExactValue<literal>> i)
@@ -304,6 +346,71 @@ to_interval(ValidatedInt<IsMixByte> i)
 {
     return ValidatedInt<IsInClosedInterval<0, byte_size - 1>>(i);
 }
+
+template <NativeInt literal>
+consteval
+ValidatedLiteral<literal>
+from_literal()
+{
+    return ValidatedLiteral<literal>::constructor(literal).value();
+}
+
+namespace details
+{
+    template <typename ...Ts>
+    struct TypeSequence{};
+
+    template <typename T>
+    struct TypeSequencePopFront;
+
+    template <typename T, typename ...Ts>
+    struct TypeSequencePopFront<TypeSequence<T, Ts...>>
+    {
+        using type = TypeSequence<Ts...>;
+    };
+
+    template <typename ListT, typename PushT>
+    struct TypeSequencePushBack;
+
+    template <typename T, typename ...Ts>
+    struct TypeSequencePushBack<TypeSequence<Ts...>, T>
+    {
+        using type = TypeSequence<Ts..., T>;
+    };
+
+    template <typename PushT, typename ListT>
+    struct TypeSequencePushFront;
+
+    template <typename T, typename ...Ts>
+    struct TypeSequencePushFront<T, TypeSequence<Ts...>>
+    {
+        using type = TypeSequence<T, Ts...>;
+    };
+
+    template <typename ListT>
+    struct TypeSequencePopBack;
+
+    template <typename T>
+    struct TypeSequencePopBack<TypeSequence<T>>
+    {
+        using type = TypeSequence<>;
+    };
+
+    template <typename T, typename ...Ts>
+    struct TypeSequencePopBack<TypeSequence<T, Ts...>>
+    {
+        using type = TypeSequencePushFront<T, typename TypeSequencePopBack<TypeSequence<Ts...>>::type>::type;
+    };
+}
+
+template <typename ...ValidatorT>
+consteval
+ValidatedInt<
+from_deduction_sequence()
+{
+
+}
+
 
 template <typename T>
 inline constexpr bool is_trivial_for_purposes_of_calls = 
