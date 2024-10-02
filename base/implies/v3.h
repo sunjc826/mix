@@ -1,9 +1,7 @@
 #pragma once
-#include "base/math.impl.h"
-#include "base/validation/validator.decl.h"
-#include "base/validation/validator.impl.h"
 #include "check.h"
 #include <base/types.h>
+#include <base/type_sequence.h>
 #include <base/validation/validator.h>
 #include <type_traits>
 
@@ -150,7 +148,6 @@ struct NonTransitiveImplies<IsInClosedInterval<low1, high1>, IsInClosedInterval<
 };
 
 
-
 namespace details
 {
 
@@ -190,25 +187,33 @@ implies_impl()
         return false;
     return implies_helper<to, from, LastNodeT>(std::make_integer_sequence<size_t, sz>());
 }
-}
 
-template <typename P, typename Q>
-consteval
-bool
-implies()
+template <typename SourceT, typename FirstNodeT, typename ListT>
+consteval 
+bool 
+implies_packed()
 {
-   return details::implies_impl<Q, P, void>();
+    if constexpr (ListT::size == 0) 
+        return details::implies_impl<FirstNodeT, SourceT, void>();
+    else 
+    {
+        using SecondNodeT = typename TypeSequenceFront<ListT>::type;
+        using TailT = typename TypeSequencePopFront<ListT>::type;
+        if constexpr (details::implies_impl<FirstNodeT, SourceT, void>() && implies_packed<FirstNodeT, SecondNodeT, TailT>())
+            return true;
+    
+        return false;
+    }
 }
 
-template <typename P, typename Q, typename FirstHintT, typename ...HintsT>
+}
+
+template <typename SourceT, typename FirstNodeT, typename... NodeTs>
 consteval 
 bool 
 implies()
 {
-    if constexpr (implies<P, FirstHintT>() && implies<FirstHintT, Q, HintsT...>())
-        return true;
-    
-    return implies<P, Q>();
+    return details::implies_packed<SourceT, FirstNodeT, TypeSequence<NodeTs...>>();
 }
 
 static_assert(!implies<IsExactValue<0>, IsInClosedInterval<31, 42>>());
@@ -230,8 +235,8 @@ static_assert(implies<IsExactValue<2>, IsMixPositiveWord>());
 // However, with some deduction hints, we can do it!
 static_assert(implies<
     IsExactValue<7>, 
-    IsMixPositiveWord,
-    IsInClosedInterval<0, 3999>
+    IsInClosedInterval<0, 3999>,
+    IsMixPositiveWord
 >());
 
 static_assert(implies<IsRegisterIndex, IsInClosedInterval<0, 6>>());

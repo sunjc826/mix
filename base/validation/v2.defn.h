@@ -1,4 +1,5 @@
 #pragma once
+#include "base/type_sequence.h"
 #include "base/types.decl.h"
 #include "base/validation/validator.decl.h"
 #include "base/validation/validator.impl.h"
@@ -57,6 +58,12 @@ public:
     ValidatedObject(ValidatedObject<StorageT, OtherValidatorT, OtherConversionT, OtherChildT> const &other)
         : value(other.raw_unwrap())
     {}
+
+    // constexpr
+    // ValidatedObject() const
+    // {
+
+    // }
 
     [[gnu::always_inline]] 
     static constexpr
@@ -136,19 +143,6 @@ public:
     ValidatedInt(ValidatedObject<NativeInt, OtherValidatorT, OtherConversionT, OtherChildT> const &obj)
         : /* otherwise the compiler error would appear here ---> */ parent_type(obj)
     {}
-    
-    // template <typename OtherConversionT, typename OtherChildT>
-    // operator ValidatedObject<NativeInt, ValidatorT, OtherConversionT, OtherChildT>() const
-    // {
-    //     return this->raw_unwrap();
-    // }
-
-    // using parent_type::operator ValidatedObject<NativeInt, ValidatorT>;
-    using raw_type = ValidatedObject<NativeInt, ValidatorT>;
-    operator raw_type() const
-    {
-
-    }
 
     [[nodiscard, gnu::flatten]]
     Result<child_type, void>
@@ -332,8 +326,8 @@ operator/(ValidatedNonNegative lhs, ValidatedNonNegative rhs)
     return ValidatedUtils::divide(lhs, rhs);
 }
 
-
 template <NativeInt literal>
+constexpr
 ValidatedInt<IsInClosedInterval<literal, literal>>
 to_interval(ValidatedInt<IsExactValue<literal>> i)
 {
@@ -341,6 +335,7 @@ to_interval(ValidatedInt<IsExactValue<literal>> i)
 }
 
 inline
+constexpr
 ValidatedInt<IsInClosedInterval<0, byte_size - 1>>
 to_interval(ValidatedInt<IsMixByte> i)
 {
@@ -348,69 +343,46 @@ to_interval(ValidatedInt<IsMixByte> i)
 }
 
 template <NativeInt literal>
-consteval
+constexpr
 ValidatedLiteral<literal>
 from_literal()
 {
     return ValidatedLiteral<literal>::constructor(literal).value();
 }
 
+template <typename DestinationT, typename StorageT, typename ValidatorT, typename ConversionT, typename ChildT>
+requires (implies<ValidatorT, DestinationT>())
+constexpr
+ValidatedObject<StorageT, DestinationT>
+deduce(ValidatedObject<StorageT, ValidatorT, ConversionT, ChildT> i)
+{
+    return ValidatedObject<StorageT, DestinationT>(i);
+}
+
 namespace details
 {
-    template <typename ...Ts>
-    struct TypeSequence{};
-
-    template <typename T>
-    struct TypeSequencePopFront;
-
-    template <typename T, typename ...Ts>
-    struct TypeSequencePopFront<TypeSequence<T, Ts...>>
+    template <typename ListT, typename StorageT, typename ValidatorT>
+    requires (ListT::size > 0)
+    constexpr
+    ValidatedObject<StorageT, typename TypeSequenceBack<ListT>::type>
+    deduce_sequence(ValidatedObject<StorageT, ValidatorT> i)
     {
-        using type = TypeSequence<Ts...>;
-    };
+        if constexpr (ListT::size == 1) 
+            return deduce<typename TypeSequenceFront<ListT>::type, StorageT, ValidatorT>(i);
+        else
+            return deduce_sequence<typename TypeSequencePopFront<ListT>::type, StorageT, ValidatorT>(ValidatedObject<StorageT, typename TypeSequenceFront<ListT>::type>(i));
+    }
 
-    template <typename ListT, typename PushT>
-    struct TypeSequencePushBack;
-
-    template <typename T, typename ...Ts>
-    struct TypeSequencePushBack<TypeSequence<Ts...>, T>
-    {
-        using type = TypeSequence<Ts..., T>;
-    };
-
-    template <typename PushT, typename ListT>
-    struct TypeSequencePushFront;
-
-    template <typename T, typename ...Ts>
-    struct TypeSequencePushFront<T, TypeSequence<Ts...>>
-    {
-        using type = TypeSequence<T, Ts...>;
-    };
-
-    template <typename ListT>
-    struct TypeSequencePopBack;
-
-    template <typename T>
-    struct TypeSequencePopBack<TypeSequence<T>>
-    {
-        using type = TypeSequence<>;
-    };
-
-    template <typename T, typename ...Ts>
-    struct TypeSequencePopBack<TypeSequence<T, Ts...>>
-    {
-        using type = TypeSequencePushFront<T, typename TypeSequencePopBack<TypeSequence<Ts...>>::type>::type;
-    };
 }
 
-template <typename ...ValidatorT>
-consteval
-ValidatedInt<
-from_deduction_sequence()
+template <typename ListT, typename StorageT, typename ValidatorT, typename ConversionT, typename ChildT>
+requires (ListT::size > 0)
+constexpr
+decltype(auto)
+deduce_sequence(ValidatedObject<StorageT, ValidatorT, ConversionT, ChildT> i)
 {
-
+    return details::deduce_sequence<ListT, StorageT, ValidatorT>(ValidatedObject<StorageT, ValidatorT>(i));
 }
-
 
 template <typename T>
 inline constexpr bool is_trivial_for_purposes_of_calls = 
