@@ -13,6 +13,10 @@ union Byte
     Byte(ValidatedByte byte) : byte(byte) {}
     [[gnu::always_inline]]
     Byte(Sign sign) : sign(sign) {}
+    Byte &
+    operator=(ValidatedByte byte) { this->byte = byte; return *this; }
+    Byte &
+    operator=(Sign sign) { this->sign = sign; return *this; }
 };
 
 template <size_t size>
@@ -54,6 +58,8 @@ inline
 std::array<Byte, bytes_in_word> 
 as_bytes(ValidatedWord word)
 {
+    static constexpr auto validated_byte_size = deduce_sequence<TypeSequence<IsInClosedInterval<0, byte_size - 1>, IsNonNegative>>(from_literal<10>());
+
     auto const [
         sign, 
         abs_value
@@ -65,7 +71,7 @@ as_bytes(ValidatedWord word)
     {
         ValidatedBounded<0, byte_size - 1> const residue = ValidatedUtils::from_mod<byte_size>(value);
         result[s].construct(residue);
-        value = value.divide<byte_size>();
+        value = value / validated_byte_size;
     }
 
     result[0].construct(sign);

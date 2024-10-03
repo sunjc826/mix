@@ -59,12 +59,6 @@ public:
         : value(other.raw_unwrap())
     {}
 
-    // constexpr
-    // ValidatedObject() const
-    // {
-
-    // }
-
     [[gnu::always_inline]] 
     static constexpr
     Result<child_type, void> 
@@ -76,9 +70,11 @@ public:
 
     template <typename ...HintsT, typename OtherValidatorT, typename OtherConversionT, typename OtherChildT>
     requires (implies<OtherValidatorT, HintsT..., ValidatorT>())
-    void assign(ValidatedObject<StorageT, OtherValidatorT, OtherConversionT, OtherChildT> const &other)
+    ValidatedObject & 
+    operator=(ValidatedObject<StorageT, OtherValidatorT, OtherConversionT, OtherChildT> const &other)
     {
         this->value = other.value;
+        return *this;
     }
 
     [[gnu::always_inline]]
@@ -144,6 +140,20 @@ public:
         : /* otherwise the compiler error would appear here ---> */ parent_type(obj)
     {}
 
+    template <typename OtherValidatorT, typename OtherConversionT, typename OtherChildT>
+    // We need the requires here so that the compiler error when implies fails appears at construction
+    requires (implies<OtherValidatorT, ValidatorT>())
+    [[gnu::always_inline, gnu::flatten]]
+    constexpr
+    ValidatedInt &
+    operator=(ValidatedObject<NativeInt, OtherValidatorT, OtherConversionT, OtherChildT> const &obj)
+    {
+        this->parent_type::operator=(obj);
+        return *this;
+    }
+    
+    // using ValidatedObject<NativeInt, ValidatorT, ConversionT, std::conditional_t<std::is_void_v<ChildT>, ValidatedInt<ValidatorT, ConversionT, void>, ChildT>>::ValidatedObject;
+
     [[nodiscard, gnu::flatten]]
     Result<child_type, void>
     increment()
@@ -177,15 +187,6 @@ public:
     multiply(NativeInt other)
     {
         return transform([other](NativeInt i) { return i + other; });
-    }
-
-    template <NativeInt divisor, typename T = ValidatorT>
-    requires (std::is_same_v<T, IsNonNegative> && divisor > 0)
-    [[gnu::always_inline]]
-    child_type 
-    divide() const
-    {
-        return this->value / divisor;
     }
 
     template <bool inplace, typename T = ValidatorT>
@@ -268,14 +269,14 @@ divide(ValidatedNonNegative lhs, ValidatedNonNegative rhs)
     return ValidatedObject<NativeInt, IsNonNegative>(lhs / rhs);
 }
 
-template <typename Func1, typename Func2, typename StorageT, typename ValidatorT1, typename ValidatorT2>
+template <typename Func1, typename Func2, typename StorageT, typename ValidatorT1, typename ValidatorT2, typename ConversionT, typename ChildT>
 static
 std::common_type_t<
     decltype(std::declval<Func1>()(std::declval<ValidatedObject<StorageT, ValidatorT1>>())),
     decltype(std::declval<Func2>()(std::declval<ValidatedObject<StorageT, ValidatorT2>>()))
 >
 visit(
-    ValidatedObject<StorageT, Or<ValidatorT1, ValidatorT2>> obj,
+    ValidatedObject<StorageT, Or<ValidatorT1, ValidatorT2>, ConversionT, ChildT> obj,
     Func1 func1,
     Func2 func2
 )
@@ -392,5 +393,4 @@ inline constexpr bool is_trivial_for_purposes_of_calls =
 
 static_assert(is_trivial_for_purposes_of_calls<ValidatedObject<std::string_view, CustomSizePredicate<std::string_view, IsExactValue<5>>>>);
 static_assert(is_trivial_for_purposes_of_calls<ValidatedWord>);
-
 }

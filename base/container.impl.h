@@ -1,6 +1,7 @@
 #pragma once
 #include <base/container.decl.h>
 #include <base/math.h>
+#include <utility>
 namespace mix
 {
 template <OwnershipKind kind, bool is_signed, size_t size>
@@ -29,6 +30,14 @@ std::conditional_t<is_signed, Sign const &, Sign> IntegralContainer<kind, is_sig
         return s_plus;
 }
 
+namespace details {
+template <size_t offset, typename ContainerT, size_t ...Is>
+decltype(auto) multiply_add(ContainerT const &container, std::index_sequence<Is...>)
+{
+    return ((lut[offset + Is] * to_interval(container[offset + Is].byte)) + ...);
+}
+}
+
 template <OwnershipKind kind, bool is_signed, size_t size>
  std::conditional_t<
     size == std::dynamic_extent,
@@ -36,10 +45,16 @@ template <OwnershipKind kind, bool is_signed, size_t size>
     typename IntegralContainer<kind, is_signed, size>::TypeHolder
 >::type IntegralContainer<kind, is_signed, size>::native_value() const
 {
-    NativeInt accum = 0;
-    for (size_t i = is_signed; i < container.size(); i++)
-        accum += lut[i] * container[i].byte;
-    return native_sign() * accum;
+    
+    if constexpr (size == std::dynamic_extent)
+    {
+        NativeInt accum = 0;
+        for (size_t i = is_signed; i < container.size(); i++)
+            accum += lut[i] * container[i].byte;
+        return native_sign() * accum;
+    }
+    else
+        return native_sign() * details::multiply_add<size_t(is_signed)>(container, std::make_index_sequence<unsigned_size>());
 }
 
 }

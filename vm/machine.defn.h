@@ -175,31 +175,31 @@ class Machine
     void do_move();
 
     template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-    void do_ld();
+    Result<void> do_ld();
     
     template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-    void do_ldn();
+    Result<void> do_ldn();
 
     template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-    void do_st();
+    Result<void> do_st();
 
     template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
     void do_j();
 
     template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-    void do_inc();
+    Result<void> do_inc();
 
     template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-    void do_dec();
+    Result<void> do_dec();
 
     template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-    void do_ent();
+    Result<void> do_ent();
 
     template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-    void do_enn();
+    Result<void> do_enn();
 
     template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-    void do_cmp();
+    Result<void> do_cmp();
 
     void do_in();
     void do_out();

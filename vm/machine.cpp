@@ -160,27 +160,30 @@ void Machine::do_src()
 }
 
 template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-void Machine::do_ld()
+Result<void> Machine::do_ld()
 {
-    SliceView const slice = inst.MF();
-    RegisterT &reg = this->*reg_member_ptr;
-    reg.template load<true>(slice.native_value());
+    return inst.MF().transform_value([this](SliceView const slice){
+        RegisterT &reg = this->*reg_member_ptr;
+        reg.template load<true>(slice.native_value());
+    });
 }
 
 template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-void Machine::do_ldn()
+Result<void> Machine::do_ldn()
 {
-    SliceView const slice = inst.MF();
-    RegisterT &reg = this->*reg_member_ptr;
-    reg.template load<true>(-slice.native_value());
+    return inst.MF().transform_value([this](SliceView const slice){
+        RegisterT &reg = this->*reg_member_ptr;
+        reg.template load<true>(-slice.native_value());
+    });
 }
 
 template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-void Machine::do_st()
+Result<void> Machine::do_st()
 {
-    SliceMutable const slice = inst.MF();
-    RegisterT const &reg = this->*reg_member_ptr;
-    reg.store(slice);
+    return inst.MF().transform_value([this](SliceMutable const slice){
+        RegisterT const &reg = this->*reg_member_ptr;
+        reg.store(slice);
+    });
 }
 
 template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
@@ -190,53 +193,59 @@ void Machine::do_j()
 }
 
 template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-void Machine::do_inc()
+Result<void> Machine::do_inc()
 {
-    NativeInt const reg_addend = inst.native_M();
-    RegisterT &reg = this->*reg_member_ptr;
-    if (reg.increment(reg_addend))
-        overflow = true;
+    return inst.native_M().transform_value([this](NativeInt reg_addend){
+        RegisterT &reg = this->*reg_member_ptr;
+        if (reg.increment(reg_addend))
+            overflow = true;
+    });    
 }
 
 template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-void Machine::do_dec()
+Result<void> Machine::do_dec()
 {
-    NativeInt const reg_addend = -inst.native_M();
-    RegisterT &reg = this->*reg_member_ptr;
-    if (reg.increment(reg_addend))
-        overflow = true;
+    return inst.native_M().transform_value([this](NativeInt const reg_subtractend){
+        NativeInt const reg_addend = -reg_subtractend;
+        RegisterT &reg = this->*reg_member_ptr;
+        if (reg.increment(reg_addend))
+            overflow = true;
+    });    
 }
 
 template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-void Machine::do_ent()
+Result<void> Machine::do_ent()
 {
-    NativeInt const new_reg_value = inst.native_M();
-    RegisterT &reg = this->*reg_member_ptr;
-    if (new_reg_value == 0)
-        reg.load_zero(inst.sign());
-    else
-        reg.template load<true>(new_reg_value);
+    return inst.native_M().transform_value([this](NativeInt const new_reg_value){
+        RegisterT &reg = this->*reg_member_ptr;
+        if (new_reg_value == 0)
+            reg.load_zero(inst.sign());
+        else
+            reg.template load<true>(new_reg_value);
+    });    
 }
 
 template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-void Machine::do_enn()
+Result<void> Machine::do_enn()
 {
-    NativeInt const M = inst.native_M();
-    RegisterT &reg = this->*reg_member_ptr;
-    if (M == 0)
-        reg.load_zero(-inst.sign());
-    else
-        reg.template load<true>(-M);
+    return inst.native_M().transform_value([this](NativeInt const M){
+        RegisterT &reg = this->*reg_member_ptr;
+        if (M == 0)
+            reg.load_zero(-inst.sign());
+        else
+            reg.template load<true>(-M);
+    });
 }
 
 template <typename RegisterT, RegisterT Machine::*reg_member_ptr>
-void Machine::do_cmp()
+Result<void> Machine::do_cmp()
 {
-    SliceView const mem_slice = inst.MF();
-    RegisterT const &reg = this->*reg_member_ptr;
-    IntegralContainer<OwnershipKind::view, RegisterT::is_signed_v, RegisterT::size_v> container = reg;
-    SliceView const reg_slice(container, mem_slice.spec);
-    comparison = reg_slice.native_value() <=> mem_slice.native_value();
+    return inst.MF().transform_value([this](SliceView const mem_slice){
+        RegisterT const &reg = this->*reg_member_ptr;
+        IntegralContainer<OwnershipKind::view, RegisterT::is_signed_v, RegisterT::size_v> container = reg;
+        SliceView const reg_slice(container, mem_slice.spec);
+        comparison = reg_slice.native_value() <=> mem_slice.native_value();
+    });    
 }
 
 template <NativeByte test_op_code>

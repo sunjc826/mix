@@ -35,13 +35,13 @@ ValidatedInt<IsInClosedInterval<-(lut[2] - 1), lut[2] - 1>> Instruction::native_
 
 Result<ValidatedInt<IsInClosedInterval<-(lut[2] - 1), lut[2] - 1>>> Instruction::native_I_value_or_zero() const
 {
-    return I().transform_value([this](ValidatedIValue idx) {
+    return I().transform_value([&m = this->m](ValidatedIValue idx) {
         return ValidatedUtils::visit(
-            ValidatedIValue::raw_type(idx),
+            idx,
             [](ValidatedInt<IsExactValue<0>>){ 
                 return zero; 
             },
-            [this](ValidatedInt<IsRegisterIndex> idx) { 
+            [&m](ValidatedInt<IsRegisterIndex> idx) { 
                 IndexRegister const &r = m.get_index_register(idx); 
                 return r.native_value(); 
             }

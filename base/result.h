@@ -107,10 +107,10 @@ public:
     }
 
     template <typename ValueTransformT>
-    Result<decltype(ValueTransformT::operator()(std::declval<Value>())), void> 
+    Result<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))> 
     transform_value(ValueTransformT &&value_transform)
     {
-        using ResultType = Result<decltype(ValueTransformT::operator()(std::declval<Value>()))>;
+        using ResultType = Result<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))>;
         if (is_success_)
             return ResultType::success(value_transform(value_));
         else
@@ -290,7 +290,7 @@ public:
     Result<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))> 
     transform_value(ValueTransformT &&value_transform) const
     {
-        using ResultType = Result<decltype(ValueTransformT::operator()(std::declval<Value>()))>;
+        using ResultType = Result<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))>;
         if (is_success_)
             return ResultType::success(value_transform(value_));
         else

@@ -1,3 +1,4 @@
+#include "base/validation/validator.impl.h"
 #include <base/base.h>
 #include <vm/register.h>
 namespace mix
@@ -8,9 +9,9 @@ Sign ZeroRegister::sign() const
     return s_plus;
 }
 
-NativeInt ZeroRegister::native_sign() const
+ValidatedInt<IsInClosedInterval<-1, 1>> ZeroRegister::native_sign() const
 {
-    return mix::native_sign(sign());
+    return ValidatedUtils::from_sign(sign());
 }
 
 NativeInt ZeroRegister::native_value() const
@@ -25,7 +26,10 @@ NativeInt ZeroRegister::native_unsigned_value() const
 
 void ZeroRegister::store(SliceMutable slice) const
 {
-    std::fill(slice.sp.begin(), slice.sp.end(), Byte{.byte = 0});
+    std::fill(
+        slice.sp.begin(), slice.sp.end(), 
+        deduce_sequence<TypeSequence<IsInClosedInterval<0, byte_size - 1>, IsMixByte>>(zero)
+    );
 }
 
 void ExtendedRegister::load(NativeInt value)

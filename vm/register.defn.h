@@ -8,7 +8,7 @@ namespace mix
 struct ZeroRegister final
 {
     Sign sign() const;
-    NativeInt native_sign() const;
+    ValidatedInt<IsInClosedInterval<-1, 1>> native_sign() const;
     NativeInt native_value() const;
     NativeInt native_unsigned_value() const;
     void store(SliceMutable slice) const;
