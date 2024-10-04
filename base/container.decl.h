@@ -66,6 +66,7 @@ template <OwnershipKind kind, typename T = Byte, size_t size = kind == Ownership
 struct OwnershipKindContainer;
 
 template <typename T, size_t size>
+requires (size != std::dynamic_extent)
 struct OwnershipKindContainer<OwnershipKind::owns, T, size>
 {
     using element_type = T;
@@ -134,6 +135,7 @@ struct IntegralContainer
     // since there must be at least 1 numerical byte.
     static constexpr size_t num_begin = is_signed ? 1 : 0;
     static_assert(size > 0);
+    static constexpr size_t size_v = size;
     static constexpr size_t unsigned_size = is_signed ? size - 1 : size;
     static_assert(unsigned_size > 0);
 
@@ -145,17 +147,28 @@ struct IntegralContainer
         : container(Container::constructor(sp))
     {}
 
+    template <typename = void>
+    requires (size != std::dynamic_extent)
     IntegralContainer(std::array<typename Container::element_type, size> arr)
         : container(Container::constructor(std::span<typename Container::element_type, size>(arr.begin(), arr.size())))
     {}
 
-    template <typename T = void>
-    requires (kind == OwnershipKind::view || kind == OwnershipKind::mutable_view)
+    template <typename = void>
+    requires (
+        size != std::dynamic_extent &&
+        (kind == OwnershipKind::view || kind == OwnershipKind::mutable_view)
+    )
     IntegralContainer(IntegralContainer<OwnershipKind::owns, is_signed, size> &w)
         : container(Container::constructor(w.container))
     {}
 
-    template <typename T = void>
+    template <typename = void>
+    requires (kind == OwnershipKind::view)
+    IntegralContainer(IntegralContainer<OwnershipKind::view, is_signed, size> const &w)
+        : container(Container::constructor(w.container))
+    {}
+
+    template <typename = void>
     requires (kind == OwnershipKind::view)
     IntegralContainer(IntegralContainer<OwnershipKind::mutable_view, is_signed, size> const &w)
         : container(Container::constructor(w.container))

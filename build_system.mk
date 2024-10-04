@@ -82,6 +82,7 @@ prepend_source_dir = $(addprefix $(SRC_DIR)/,$(1))
 define make_relocatable_object
 ifneq ($(strip $($(TARGET)_C_OBJECTS)),)
 $(call prepend_build_dir,$($(TARGET)_C_OBJECTS)): $(call prepend_build_dir,%.o) : $(call prepend_source_dir,%.c)
+	mkdir -p '$$(@D)'
 	$(CC) -o $$@ \
 	$(FLAGS) \
 	$(CFLAGS) \
@@ -100,6 +101,7 @@ endif
 
 ifneq ($(strip $($(TARGET)_CXX_OBJECTS)),)
 $(call prepend_build_dir,$($(TARGET)_CXX_OBJECTS)): $(call prepend_build_dir,%.o) : $(call prepend_source_dir,%.cpp)
+	mkdir -p '$$(@D)'
 	$(CXX) -o $$@ \
 	$(FLAGS) \
 	$(CXXFLAGS) \

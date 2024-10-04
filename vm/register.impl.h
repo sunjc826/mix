@@ -1,4 +1,6 @@
 #pragma once
+#include "base/validation/validator.impl.h"
+#include "config.impl.h"
 #include <vm/register.defn.h>
 
 #include <stdexcept>
@@ -154,7 +156,7 @@ void Register<is_signed, size>::shift_left(NativeInt shift_by)
         reg[i] = reg[i + shift_by];
 
     for (; i < size;)
-        reg[i] = Byte{.byte = zero};
+        reg[i] = Byte(deduce<IsInClosedInterval<0, byte_size - 1>>(to_interval(zero)));
 }
 
 template <bool is_signed, size_t size>
@@ -168,7 +170,7 @@ void Register<is_signed, size>::shift_right(NativeInt shift_by)
         reg[i] = reg[i - shift_by];
 
     for (; i --> numerical_first_idx;)
-        reg[i] = Byte{.byte = zero};
+        reg[i] = Byte(deduce<IsInClosedInterval<0, byte_size - 1>>(to_interval(zero)));
 }
 
 template <bool is_signed, size_t size>
