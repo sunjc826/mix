@@ -1,4 +1,5 @@
 #pragma once
+#include "base/validation/validator.impl.h"
 #include <base/base.h>
 #include <base/validation/constants.h>
 #include <vm/register.decl.h>
@@ -64,11 +65,11 @@ struct Register
         if constexpr (is_signed)
         {
             reg[0].sign = sign; 
-            std::fill(reg.begin() + 1, reg.end(), Byte{.byte = zero});
+            std::fill(reg.begin() + 1, reg.end(), deduce<IsInClosedInterval<0, byte_size - 1>>(to_interval(zero)));
         }
         else
         {
-            std::fill(reg.begin(), reg.end(), Byte{.byte = zero});
+            std::fill(reg.begin(), reg.end(), deduce<IsInClosedInterval<0, byte_size - 1>>(to_interval(zero)));
         }
     }
 

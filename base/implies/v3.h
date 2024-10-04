@@ -153,6 +153,12 @@ struct NonTransitiveImplies<IsInClosedInterval<0, high>, IsNonNegative>
     static constexpr bool value = 0 <= high;
 };
 
+template <NativeInt high>
+struct NonTransitiveImplies<IsInClosedInterval<1, high>, IsPositive>
+{
+    static constexpr bool value = 1 <= high;
+};
+
 
 namespace details
 {

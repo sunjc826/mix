@@ -85,10 +85,9 @@ Result<SliceMutable> Instruction::MF() const
 Result<ValidatedWord> Instruction::native_MF() const
 {
     using ResultType = Result<ValidatedWord>;
-    Result<SliceMutable> slice = MF();
-    if (!slice)
-        return ResultType::failure();
-    return ResultType::success(slice.value().native_value());
+    return MF().transform_value([](SliceMutable slice){
+        return ValidatedWord::constructor(slice.native_value());
+    });
 }
 
 }

@@ -4,6 +4,7 @@
 #include "config.impl.h"
 #include <base/types.h>
 #include <base/validation/types.h>
+#include <utility>
 
 namespace mix
 {
@@ -77,7 +78,7 @@ struct OwnershipKindContainer<OwnershipKind::owns, T, size>
             // Here, copy elision is possible even for a Validated type.
             // However note that `constructor_helper` results in a fully "unrolled" `size` assignments,
             // last I checked on godbolt.
-            return constructor_helper(sp);
+            return constructor_helper(sp, std::make_index_sequence<size>());
         }
         else
         {
@@ -126,7 +127,7 @@ struct OwnershipKindContainer<OwnershipKind::view, T, size>
 template <OwnershipKind kind, bool is_signed, size_t size>
 struct IntegralContainer
 {
-    using Container = OwnershipKindContainer<kind, Byte, bytes_in_word>;
+    using Container = OwnershipKindContainer<kind, Byte, size>;
     static constexpr bool is_view = Container::is_view;
     typename Container::type container;
     // If there is a sign byte, then the total number of bytes must > 1,
@@ -205,7 +206,7 @@ struct IntegralContainer
     };
     std::conditional_t<
         size == std::dynamic_extent,
-        std::type_identity<NativeInt>,
+        std::type_identity<Result<ValidatedInt<IsMixWord>>>,
         TypeHolder
     >::type native_value() const;
 };

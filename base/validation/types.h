@@ -1,5 +1,7 @@
 #pragma once
 #include "base/validation/v2.decl.h"
+#include "base/validation/v2.defn.h"
+#include "base/validation/validator.impl.h"
 #include <base/types.h>
 #include <base/deferred_value.h>
 #include <base/validation/v2.h>
@@ -27,38 +29,38 @@ struct ByteConversionResult
 };
 
 template <size_t size>
-ByteConversionResult<size> as_bytes(NativeInt value)
+ByteConversionResult<size> 
+as_bytes(NativeInt i)
 {
-    Sign sign;
-    if (value < 0)
-    {
-        sign = s_minus;
-        value = -value;
-    }
-    else
-    {
-        sign = s_plus;
-    }
+    static constexpr ValidatedPositive validated_byte_size = deduce_sequence<TypeSequence<IsInClosedInterval<1, byte_size>, IsPositive>>(from_literal<byte_size>());
 
-    ByteConversionResult<size> result;
+    auto const [
+        sign, 
+        abs_value
+    ] = ValidatedUtils::from_abs(i);
+    ValidatedNonNegative value = abs_value;
+
+    std::array<DeferredValue<Byte>, size> result;
     for (size_t s = size; s --> 1;)
     {
-        result.bytes[s].byte = value % byte_size;
-        value /= byte_size;
+        ValidatedBounded<0, byte_size - 1> const residue = ValidatedUtils::from_mod<byte_size>(value);
+        result[s].construct(residue);
+        value = value / validated_byte_size;
     }
 
-    result.bytes[0].sign = sign;
+    result[0].construct(sign);
     
-    result.overflow = value > 0;
-
-    return result;
+    return ByteConversionResult<size>{
+        .bytes = actualize_reinterpret(result),
+        .overflow = value > 0
+    };
 }
 
 inline
 std::array<Byte, bytes_in_word> 
 as_bytes(ValidatedWord word)
 {
-    static constexpr auto validated_byte_size = deduce_sequence<TypeSequence<IsInClosedInterval<0, byte_size - 1>, IsNonNegative>>(from_literal<10>());
+    static constexpr auto validated_ten = deduce_sequence<TypeSequence<IsInClosedInterval<0, byte_size - 1>, IsNonNegative>>(from_literal<10>());
 
     auto const [
         sign, 
@@ -71,7 +73,7 @@ as_bytes(ValidatedWord word)
     {
         ValidatedBounded<0, byte_size - 1> const residue = ValidatedUtils::from_mod<byte_size>(value);
         result[s].construct(residue);
-        value = value / validated_byte_size;
+        value = value / validated_ten;
     }
 
     result[0].construct(sign);

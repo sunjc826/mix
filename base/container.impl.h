@@ -32,16 +32,17 @@ std::conditional_t<is_signed, Sign const &, Sign> IntegralContainer<kind, is_sig
 
 namespace details {
 template <size_t offset, typename ContainerT, size_t ...Is>
-decltype(auto) multiply_add(ContainerT const &container, std::index_sequence<Is...>)
+ValidatedInt<IsInClosedInterval<-(lut[sizeof...(Is)] - 1), lut[sizeof...(Is)] - 1>>
+multiply_add(ContainerT const &container, std::index_sequence<Is...>)
 {
-    return ((lut[offset + Is] * to_interval(container[offset + Is].byte)) + ...);
+    return ((to_interval(from_literal<lut[sizeof...(Is) - 1 - Is]>()) * to_interval(container[offset + Is].byte)) + ...);
 }
 }
 
 template <OwnershipKind kind, bool is_signed, size_t size>
  std::conditional_t<
     size == std::dynamic_extent,
-    std::type_identity<NativeInt>,
+    std::type_identity<Result<ValidatedInt<IsMixWord>>>,
     typename IntegralContainer<kind, is_signed, size>::TypeHolder
 >::type IntegralContainer<kind, is_signed, size>::native_value() const
 {
@@ -51,7 +52,7 @@ template <OwnershipKind kind, bool is_signed, size_t size>
         NativeInt accum = 0;
         for (size_t i = is_signed; i < container.size(); i++)
             accum += lut[i] * container[i].byte;
-        return native_sign() * accum;
+        return ValidatedWord::constructor(native_sign() * accum);
     }
     else
         return native_sign() * details::multiply_add<size_t(is_signed)>(container, std::make_index_sequence<unsigned_size>());

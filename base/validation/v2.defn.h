@@ -98,10 +98,10 @@ public:
         return value;
     }
 
-    operator ValidatedObject<StorageT, ValidatorT>() const
-    {
-        return this->raw_unwrap();
-    }
+    // operator ValidatedObject<StorageT, ValidatorT>() const
+    // {
+    //     return this->raw_unwrap();
+    // }
 
     template <map_func_type fn>
     [[nodiscard]]
@@ -269,6 +269,13 @@ divide(ValidatedNonNegative lhs, ValidatedNonNegative rhs)
     return ValidatedObject<NativeInt, IsNonNegative>(lhs / rhs);
 }
 
+static
+ValidatedNonNegative
+modulo(ValidatedNonNegative lhs, ValidatedPositive rhs)
+{
+    return ValidatedObject<NativeInt, IsNonNegative>(lhs % rhs);
+}
+
 template <typename Func1, typename Func2, typename StorageT, typename ValidatorT1, typename ValidatorT2, typename ConversionT, typename ChildT>
 static
 std::common_type_t<
@@ -318,6 +325,13 @@ decltype(auto)
 operator*(ValidatedNonNegative lhs, ValidatedNonNegative rhs)
 {
     return ValidatedUtils::multiply(lhs, rhs);
+}
+
+inline
+decltype(auto)
+operator%(ValidatedNonNegative lhs, ValidatedPositive rhs)
+{
+    return ValidatedUtils::modulo(lhs, rhs);
 }
 
 inline

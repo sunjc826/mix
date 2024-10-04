@@ -4,6 +4,23 @@
 namespace mix
 {
 
+template <typename T>
+struct ResultTraits
+{
+    static constexpr bool is_result = false;
+    using value_type = T;
+};
+
+template <typename ValueT, typename ErrorT>
+struct Result;
+
+template <typename ValueT, typename ErrorT>
+struct ResultTraits<Result<ValueT, ErrorT>>
+{
+    static constexpr bool is_result = true;
+    using value_type = ValueT;
+};
+
 template <typename Value, typename Error = void>
 class Result
 {
@@ -96,23 +113,33 @@ public:
     */
 
     template <typename ValueTransformT, typename ErrorTransformT>
-    Result<decltype(ValueTransformT::operator()(std::declval<Value>())), decltype(ErrorTransformT::operator()(std::declval<Error>()))> 
+    Result<typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))>::value_type, decltype(ErrorTransformT::operator()(std::declval<Error>()))> 
     transform(ValueTransformT &&value_transform, ErrorTransformT &&error_transform = identity_error_transform)
     {
-        using ResultType = Result<decltype(ValueTransformT::operator()(std::declval<Value>())), decltype(ErrorTransformT::operator()(std::declval<Error>()))>;
+        using ResultType = Result<decltype(std::declval<ValueTransformT>()(std::declval<Value>())), decltype(ErrorTransformT::operator()(std::declval<Error>()))>;
         if (is_success_)
-            return ResultType::success(value_transform(value_));
+        {
+            if constexpr (ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))>::is_result)
+                return value_transform(value_);
+            else
+                return ResultType::success(value_transform(value_));
+        }
         else
             return ResultType::failure(error_transform(error_));
     }
 
     template <typename ValueTransformT>
-    Result<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))> 
+    Result<typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))>::value_type> 
     transform_value(ValueTransformT &&value_transform)
     {
         using ResultType = Result<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))>;
         if (is_success_)
-            return ResultType::success(value_transform(value_));
+        {
+            if constexpr (ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))>::is_result)
+                return value_transform(value_);
+            else
+                return ResultType::success(value_transform(value_));
+        }
         else
             return ResultType::failure();
     }
@@ -276,23 +303,33 @@ public:
     */
 
     template <typename ValueTransformT, typename ErrorT>
-    Result<decltype(ValueTransformT::operator()(std::declval<Value>())), ErrorT> 
+    Result<typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))>::value_type, ErrorT> 
     transform(ValueTransformT &&value_transform, ErrorT error) const
     {
-        using ResultType = Result<decltype(ValueTransformT::operator()(std::declval<Value>())), ErrorT>;
+        using ResultType = Result<typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))>::value_type, ErrorT>;
         if (is_success_)
-            return ResultType::success(value_transform(value_));
+        {
+            if constexpr (ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))>::is_result)
+                return value_transform(value_);
+            else
+                return ResultType::success(value_transform(value_));
+        }
         else
             return ResultType::failure(error);
     }
 
     template <typename ValueTransformT>
-    Result<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))> 
+    Result<typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))>::value_type> 
     transform_value(ValueTransformT &&value_transform) const
     {
-        using ResultType = Result<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))>;
+        using ResultType = Result<typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))>::value_type>;
         if (is_success_)
-            return ResultType::success(value_transform(value_));
+        {
+            if constexpr (ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<Value>()))>::is_result)
+                return value_transform(value_);
+            else
+                return ResultType::success(value_transform(value_));
+        }
         else
             return ResultType::failure();
     }
@@ -340,16 +377,6 @@ public:
     }
 };
 
-template <typename T>
-struct IsResult
-{
-    static constexpr bool value = false;
-};
 
-template <typename ValueT, typename ErrorT>
-struct IsResult<Result<ValueT, ErrorT>>
-{
-    static constexpr bool value = true;
-};
 
 }

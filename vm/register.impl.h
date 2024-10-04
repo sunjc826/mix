@@ -58,13 +58,15 @@ ValidatedInt<IsInClosedInterval<-1, 1>> Register<is_signed, size>::native_sign()
 }
 
 template <bool is_signed, size_t size>
-IntMutable<is_signed, size> Register<is_signed, size>::value()
+IntMutable<is_signed, size>
+Register<is_signed, size>::value()
 {
     return IntMutable<is_signed, size>(reg);
 }
 
 template <bool is_signed, size_t size>
-IntMutable<false, Register<is_signed, size>::unsigned_size_v> Register<is_signed, size>::unsigned_value()
+IntMutable<false, Register<is_signed, size>::unsigned_size_v>
+Register<is_signed, size>::unsigned_value()
 {
     return IntMutable<false, Register<is_signed, size>::unsigned_size_v>(std::span<Byte, unsigned_size_v>(reg.begin() + (is_signed ? 1 : 0), reg.end()));
 }
@@ -82,13 +84,15 @@ IntView<false, Register<is_signed, size>::unsigned_size_v> Register<is_signed, s
 }
 
 template <bool is_signed, size_t size>
-ValidatedInt<IsInClosedInterval<-(lut[ Register<is_signed, size>::unsigned_size_v] - 1), lut[ Register<is_signed, size>::unsigned_size_v] - 1>> Register<is_signed, size>::native_value() const
+ValidatedInt<IsInClosedInterval<-(lut[Register<is_signed, size>::unsigned_size_v] - 1), lut[Register<is_signed, size>::unsigned_size_v] - 1>> 
+Register<is_signed, size>::native_value() const
 {
     return value().native_value();
 }
 
 template <bool is_signed, size_t size>
-ValidatedInt<IsInClosedInterval<0, lut[Register<is_signed, size>::unsigned_size_v] - 1>> Register<is_signed, size>::native_unsigned_value() const
+ValidatedInt<IsInClosedInterval<0, lut[Register<is_signed, size>::unsigned_size_v] - 1>> 
+Register<is_signed, size>::native_unsigned_value() const
 {
     return unsigned_value().native_value();
 }
