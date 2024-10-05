@@ -32,7 +32,7 @@ std::conditional_t<is_signed, Sign const &, Sign> IntegralContainer<kind, is_sig
 
 namespace details {
 template <size_t offset, typename ContainerT, size_t ...Is>
-ValidatedInt<IsInClosedInterval<-(lut[sizeof...(Is)] - 1), lut[sizeof...(Is)] - 1>>
+ValidatedInt<IsInClosedInterval<0, lut[sizeof...(Is)] - 1>>
 multiply_add(ContainerT const &container, std::index_sequence<Is...>)
 {
     return ((to_interval(from_literal<lut[sizeof...(Is) - 1 - Is]>()) * to_interval(container[offset + Is].byte)) + ...);
@@ -55,7 +55,12 @@ template <OwnershipKind kind, bool is_signed, size_t size>
         return ValidatedWord::constructor(native_sign() * accum);
     }
     else
-        return native_sign() * details::multiply_add<size_t(is_signed)>(container, std::make_index_sequence<unsigned_size>());
+    {   ValidatedInt<IsInClosedInterval<0, lut[unsigned_size] - 1>> const unsigned_result = details::multiply_add<size_t(is_signed)>(container, std::make_index_sequence<unsigned_size>());
+        if constexpr (!is_signed)
+            return unsigned_result;
+        else
+            return native_sign() * unsigned_result;
+    }
 }
 
 }

@@ -74,13 +74,15 @@ Register<is_signed, size>::unsigned_value()
 }
 
 template <bool is_signed, size_t size>
-IntView<is_signed, size> Register<is_signed, size>::value() const
+IntView<is_signed, size>
+Register<is_signed, size>::value() const
 {
     return REMOVE_CONST_FROM_PTR(this)->value();
 }
 
 template <bool is_signed, size_t size>
-IntView<false, Register<is_signed, size>::unsigned_size_v> Register<is_signed, size>::unsigned_value() const
+IntView<false, Register<is_signed, size>::unsigned_size_v>
+Register<is_signed, size>::unsigned_value() const
 {
     return REMOVE_CONST_FROM_PTR(this)->unsigned_value();
 }
@@ -156,7 +158,7 @@ void Register<is_signed, size>::shift_left(NativeInt shift_by)
         reg[i] = reg[i + shift_by];
 
     for (; i < size;)
-        reg[i] = Byte(deduce<IsInClosedInterval<0, byte_size - 1>>(to_interval(zero)));
+        reg[i] = zero_byte;
 }
 
 template <bool is_signed, size_t size>
@@ -170,7 +172,7 @@ void Register<is_signed, size>::shift_right(NativeInt shift_by)
         reg[i] = reg[i - shift_by];
 
     for (; i --> numerical_first_idx;)
-        reg[i] = Byte(deduce<IsInClosedInterval<0, byte_size - 1>>(to_interval(zero)));
+        reg[i] = zero_byte;
 }
 
 template <bool is_signed, size_t size>

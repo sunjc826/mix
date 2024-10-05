@@ -70,10 +70,11 @@ public:
 
     template <typename ...HintsT, typename OtherValidatorT, typename OtherConversionT, typename OtherChildT>
     requires (implies<OtherValidatorT, HintsT..., ValidatorT>())
+    constexpr
     ValidatedObject & 
     operator=(ValidatedObject<StorageT, OtherValidatorT, OtherConversionT, OtherChildT> const &other)
     {
-        this->value = other.value;
+        this->value = other.raw_unwrap();
         return *this;
     }
 

@@ -1,25 +1,35 @@
 #pragma once
-#include "base/validation/v2.decl.h"
-#include "base/validation/v2.defn.h"
-#include "base/validation/validator.impl.h"
 #include <base/types.h>
 #include <base/deferred_value.h>
 #include <base/validation/v2.h>
+#include <base/validation/constants.h>
 namespace mix
 {
 union Byte
 {
     ValidatedByte byte;
     Sign sign;
+    constexpr
+    Byte();
     [[gnu::always_inline]]
+    constexpr
     Byte(ValidatedByte byte) : byte(byte) {}
     [[gnu::always_inline]]
+    constexpr
     Byte(Sign sign) : sign(sign) {}
     Byte &
     operator=(ValidatedByte byte) { this->byte = byte; return *this; }
     Byte &
     operator=(Sign sign) { this->sign = sign; return *this; }
 };
+
+constexpr Byte zero_byte(deduce_sequence<TypeSequence<IsInClosedInterval<0, byte_size - 1>, IsMixByte>>(to_interval(zero)));
+
+inline 
+constexpr
+Byte::Byte()
+    : Byte(zero_byte)
+{}
 
 template <size_t size>
 struct ByteConversionResult

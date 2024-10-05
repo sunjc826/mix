@@ -135,6 +135,7 @@ struct IntegralContainer
     // since there must be at least 1 numerical byte.
     static constexpr size_t num_begin = is_signed ? 1 : 0;
     static_assert(size > 0);
+    static constexpr bool is_signed_v = is_signed;
     static constexpr size_t size_v = size;
     static constexpr size_t unsigned_size = is_signed ? size - 1 : size;
     static_assert(unsigned_size > 0);
@@ -215,7 +216,7 @@ struct IntegralContainer
 
     struct TypeHolder
     {
-        using type = ValidatedInt<IsInClosedInterval<-(lut[unsigned_size] - 1), lut[unsigned_size] - 1>>;
+        using type = ValidatedInt<IsInClosedInterval<is_signed ? -(lut[unsigned_size] - 1) : 0, lut[unsigned_size] - 1>>;
     };
     std::conditional_t<
         size == std::dynamic_extent,

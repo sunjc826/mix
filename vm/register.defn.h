@@ -23,7 +23,7 @@ struct Register
     static constexpr size_t unsigned_size_v = is_signed ? size - 1 : size;
     static constexpr size_t numerical_first_idx = is_signed ? 1 : 0;
 
-    std::array<Byte, size> reg = { { [0] = is_signed ? s_plus : 0 } };
+    std::array<Byte, size> reg = { { [0] = is_signed ? s_plus : zero_byte } };
 
     Register() = default;
     
