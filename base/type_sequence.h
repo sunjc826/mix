@@ -1,5 +1,7 @@
 #pragma once
 #include <type_traits>
+#include <tuple>
+#include <cstddef>
 namespace mix
 {
 
@@ -7,6 +9,12 @@ namespace mix
     struct TypeSequence
     {
         static constexpr bool size = sizeof...(Ts);
+    };
+
+    template <size_t i, typename ...Ts>
+    struct TypeSequenceGet
+    {
+        using type = std::tuple_element_t<i, std::tuple<Ts...>>();
     };
 
     template <typename T>

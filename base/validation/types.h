@@ -23,7 +23,7 @@ union Byte
     operator=(Sign sign) { this->sign = sign; return *this; }
 };
 
-constexpr Byte zero_byte(deduce_sequence<TypeSequence<IsInClosedInterval<0, byte_size - 1>, IsMixByte>>(to_interval(zero)));
+constexpr Byte zero_byte(deduce<IsMixByte>(to_interval(zero)));
 
 inline 
 constexpr
@@ -70,7 +70,7 @@ inline
 std::array<Byte, bytes_in_word> 
 as_bytes(ValidatedWord word)
 {
-    static constexpr auto validated_ten = deduce_sequence<TypeSequence<IsInClosedInterval<0, byte_size - 1>, IsNonNegative>>(from_literal<10>());
+    static constexpr auto validated_ten = deduce<IsNonNegative>(from_literal<10>());
 
     auto const [
         sign, 

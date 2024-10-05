@@ -111,7 +111,7 @@ void Machine::do_num()
 void Machine::do_char()
 {
     static constexpr auto thirty = to_interval(from_literal<30>());
-    static constexpr auto ten = deduce_sequence<TypeSequence<IsInClosedInterval<0, byte_size - 1>, IsNonNegative>>(from_literal<10>());
+    static constexpr auto ten = deduce<IsNonNegative>(from_literal<10>());
     ValidatedNonNegative unsigned_value = rA.native_unsigned_value();
     for (size_t i = rX.reg.size(); i --> 1; unsigned_value = unsigned_value / ten)
         rX.reg[i].byte = ValidatedInt<IsInClosedInterval<0, byte_size - 1>>(thirty + ValidatedUtils::from_mod<10>(unsigned_value));

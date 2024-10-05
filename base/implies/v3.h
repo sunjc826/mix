@@ -4,6 +4,7 @@
 #include <base/type_sequence.h>
 #include <base/validation/validator.h>
 #include <type_traits>
+#include <utility>
 
 namespace mix
 {
@@ -160,18 +161,25 @@ struct NonTransitiveImplies<IsInClosedInterval<1, high>, IsPositive>
 };
 
 
+
 namespace details
 {
 
-template <typename to, typename from, typename LastNodeT>
+using CommonSearchList = std::tuple<
+    IsInClosedInterval<1, 6>,
+    IsInClosedInterval<0, byte_size - 1>,
+    IsInClosedInterval<0, 3999>
+>;
+
+template <typename to, typename from, typename LastNodeT, bool has_used_common_search_list>
 consteval 
 bool 
 implies_impl();
 
-template <typename to, typename from, typename LastNodeT, size_t ...Is>
+template <typename to, typename from, typename LastNodeT, bool has_used_common_search_list, size_t ...Is>
 consteval 
 bool 
-implies_helper(std::integer_sequence<size_t, Is...> const &)
+implies_direct_implication_search(std::integer_sequence<size_t, Is...> const &)
 {
    return 
     (
@@ -180,24 +188,58 @@ implies_helper(std::integer_sequence<size_t, Is...> const &)
         (
             !std::is_same_v<std::tuple_element_t<Is, typename DirectImplications<from>::type>, LastNodeT>
             and 
-            implies_impl<to, std::tuple_element_t<Is, typename DirectImplications<from>::type>, from>()
+            implies_impl<to, std::tuple_element_t<Is, typename DirectImplications<from>::type>, from, has_used_common_search_list>()
+        )
+
+        or 
+        ...
+    );
+}
+
+template <typename to, typename from, typename LastNodeT, size_t ...Is>
+consteval 
+bool 
+implies_common_search_list_search(std::integer_sequence<size_t, Is...> const &)
+{
+   return 
+    (
+        // If we trace the full path, the compiler will die from template recursion...
+        // Thus, we only trace up to 1 node, so we can detect trivial if-and-only-if relationships.
+        (
+            NonTransitiveImplies_v<from, std::tuple_element_t<Is, CommonSearchList>>
+            and
+            !std::is_same_v<std::tuple_element_t<Is, CommonSearchList>, LastNodeT>
+            and 
+            implies_impl<to, std::tuple_element_t<Is, CommonSearchList>, from, true>()
         )
         or 
         ...
     );
 }
 
-template <typename to, typename from, typename LastNodeT>
+template <typename to, typename from, typename LastNodeT, bool has_used_common_search_list>
 consteval
 bool
 implies_impl()
 {
     if constexpr (NonTransitiveImplies_v<from, to>)
         return true;
+
+    if constexpr (!has_used_common_search_list)
+    {
+        if constexpr (implies_common_search_list_search<to, from, LastNodeT>(
+            std::make_index_sequence<std::tuple_size_v<CommonSearchList>>()
+        ))
+            return true;
+    }
+
     constexpr size_t sz = std::tuple_size_v<typename DirectImplications<from>::type>;
     if constexpr (sz == 0)
         return false;
-    return implies_helper<to, from, LastNodeT>(std::make_integer_sequence<size_t, sz>());
+    return
+        implies_direct_implication_search<to, from, LastNodeT, has_used_common_search_list>(
+            std::make_index_sequence<sz>()
+        );
 }
 
 template <typename SourceT, typename FirstNodeT, typename ListT>
@@ -206,12 +248,12 @@ bool
 implies_packed()
 {
     if constexpr (ListT::size == 0) 
-        return details::implies_impl<FirstNodeT, SourceT, void>();
+        return details::implies_impl<FirstNodeT, SourceT, void, false>();
     else 
     {
         using SecondNodeT = typename TypeSequenceFront<ListT>::type;
         using TailT = typename TypeSequencePopFront<ListT>::type;
-        if constexpr (details::implies_impl<FirstNodeT, SourceT, void>() && implies_packed<FirstNodeT, SecondNodeT, TailT>())
+        if constexpr (details::implies_impl<FirstNodeT, SourceT, void, false>() && implies_packed<FirstNodeT, SecondNodeT, TailT>())
             return true;
     
         return false;
@@ -240,11 +282,13 @@ static_assert(implies<
 >());
 
 static_assert(implies<IsExactValue<2>, IsMixPositiveWord>());
-// Unfortunately this won't work
-// It is not possible to get transitivity when NonTransitiveImplies_v is used. 
-// static_assert(implies<IsExactValue<7>, IsMixPositiveWord>());
 
-// However, with some deduction hints, we can do it!
+// This works courtesy of the `CommonSearchList`.
+// Without `CommonSearchList`, this will return false.
+static_assert(implies<IsExactValue<7>, IsMixPositiveWord>());
+
+// Implies allows us to specify deduction hints directly.
+// This works even without `CommonSearchList`.
 static_assert(implies<
     IsExactValue<7>, 
     IsInClosedInterval<0, 3999>,

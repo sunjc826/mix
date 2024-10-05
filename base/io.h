@@ -11,31 +11,31 @@ namespace mix
 {
 
     template <typename CharT, typename OstreamT>
-    concept is_ostream = requires(OstreamT os)
+    concept IsOstream = requires(OstreamT os)
     {
         {
-            os.send(std::declval<std::basic_string_view<CharT>>())
+            os.send(std::declval<std::span<CharT>>())
         } -> std::same_as<Result<void>>;
     };
 
     template <typename CharT, typename IstreamT>
-    concept is_istream = requires(IstreamT is)
+    concept IsIstream = requires(IstreamT is)
     {
         {
             is.recv()
-        } -> std::same_as<Result<std::basic_string_view<CharT>>>;
+        } -> std::same_as<Result<std::span<CharT>>>;
     };
 
     template <typename FromT, typename ToT, typename TransformerT>
-    concept is_transformer = requires(TransformerT transformer)
+    concept IsTransformer = requires(TransformerT transformer)
     {
         {
-            transformer.transform(std::declval<std::basic_string_view<FromT>>())
-        } -> std::same_as<Result<std::basic_string_view<ToT>>>; 
+            transformer.transform(std::declval<std::span<FromT>>())
+        } -> std::same_as<Result<std::span<ToT>>>; 
     };
 
     template <typename FromT, typename ToT, typename DownstreamT, typename TransformerT>
-    requires is_ostream<ToT, DownstreamT> && is_transformer<FromT, ToT, TransformerT>
+    requires IsOstream<ToT, DownstreamT> && IsTransformer<FromT, ToT, TransformerT>
     class PushPipe
     {
         TransformerT transformer;
@@ -45,9 +45,9 @@ namespace mix
             : downstream(downstream)
         {}
 
-        Result<void> send(std::basic_string_view<FromT> sv)
+        Result<void> send(std::span<FromT> sv)
         {
-            Result<std::basic_string_view<ToT>> transform_result = transformer.transform(sv);
+            Result<std::span<ToT>> transform_result = transformer.transform(sv);
             if (!transform_result)
                 return Result<void>::failure();
             downstream.send(transform_result.value());
@@ -56,7 +56,7 @@ namespace mix
     };
 
     template <typename FromT, typename ToT, typename UpstreamT, typename TransformerT>
-    requires is_istream<FromT, UpstreamT> && is_transformer<FromT, ToT, TransformerT>
+    requires IsIstream<FromT, UpstreamT> && IsTransformer<FromT, ToT, TransformerT>
     class PullPipe
     {
         
@@ -67,10 +67,10 @@ namespace mix
             : upstream(upstream)
         {}
 
-        Result<std::basic_string_view<ToT>> recv()
+        Result<std::span<ToT>> recv()
         {
-            using ResultType = Result<std::basic_string_view<ToT>>;
-            Result<std::basic_string_view<FromT>> msg = upstream.recv();
+            using ResultType = Result<std::span<ToT>>;
+            Result<std::span<FromT>> msg = upstream.recv();
             if (!msg)
                 return ResultType::failure();
             return transformer.transform(msg.value());
@@ -86,13 +86,13 @@ namespace mix
             : is(is)
         {}
 
-        Result<std::string_view> recv()
+        Result<std::span<char>> recv()
         {
             is >> s;            
-            return Result<std::string_view>::success(s);
+            return Result<std::span<char>>::success(s);
         }
     };
-    static_assert(is_istream<char, StdIstream>);
+    static_assert(IsIstream<char, StdIstream>);
 
     class StdOstream
     {
@@ -102,15 +102,15 @@ namespace mix
             : os(os)
         {}
 
-        Result<void> send(std::string_view sv)
+        Result<void> send(std::span<char> sv)
         {
-            os << sv;
+            os << std::string_view(sv.begin(), sv.end());
             if (os)
                 return Result<void>::success();
             else
                 return Result<void>::failure();
         }
     };
-    static_assert(is_ostream<char, StdOstream>);
-
+    static_assert(IsOstream<char, StdOstream>);
 }
+

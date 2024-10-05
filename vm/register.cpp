@@ -28,7 +28,7 @@ void ZeroRegister::store(SliceMutable slice) const
 {
     std::fill(
         slice.sp.begin(), slice.sp.end(), 
-        deduce_sequence<TypeSequence<IsInClosedInterval<0, byte_size - 1>, IsMixByte>>(zero)
+        deduce<IsMixByte>(zero)
     );
 }
 
