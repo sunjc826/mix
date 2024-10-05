@@ -146,12 +146,11 @@ class Machine
     [[gnu::always_inline]] inline
     Word<OwnershipKind::mutable_view> get_memory_word(ValidatedAddress address);
 
-    template <NativeByte test_op_code = 0>
-    __attribute__((flatten))
-    void jump_table();
+    [[gnu::flatten]]
+    Result<void> jump_table();
 
     template <NativeByte op_code>
-    __attribute__((always_inline, flatten))
+    [[gnu::flatten]]
     void dispatch_by_op_code();
 
     void do_nop();

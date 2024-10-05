@@ -248,13 +248,44 @@ Result<void> Machine::do_cmp()
     });    
 }
 
-template <NativeByte test_op_code>
-void Machine::jump_table()
+Result<void> Machine::jump_table()
 {
-    if (inst.C() == test_op_code)
-        dispatch_by_op_code<test_op_code>();
-    else if constexpr (test_op_code + 1 < op_max)
-        jump_table<test_op_code + 1>();
+    switch (inst.C())
+    {
+#define DISPATCH8(base) \
+    case base * 8 + 0: \
+        dispatch_by_op_code<base * 8 + 0>(); break; \
+    case base * 8 + 1: \
+        dispatch_by_op_code<base * 8 + 1>(); break; \
+    case base * 8 + 2: \
+        dispatch_by_op_code<base * 8 + 2>(); break; \
+    case base * 8 + 3: \
+        dispatch_by_op_code<base * 8 + 3>(); break; \
+    case base * 8 + 4: \
+        dispatch_by_op_code<base * 8 + 4>(); break; \
+    case base * 8 + 5: \
+        dispatch_by_op_code<base * 8 + 5>(); break; \
+    case base * 8 + 6: \
+        dispatch_by_op_code<base * 8 + 6>(); break; \
+    case base * 8 + 7: \
+        dispatch_by_op_code<base * 8 + 7>(); break; \
+
+
+    DISPATCH8(0);
+    DISPATCH8(1);
+    DISPATCH8(2);
+    DISPATCH8(3);
+    DISPATCH8(4);
+    DISPATCH8(5);
+    DISPATCH8(6);
+    DISPATCH8(7);
+    default:
+        // Bad op code
+        return Result<void>::failure();
+    }
+#undef DISPATCH8
+
+    return Result<void>::success();
 }
 
 template <NativeByte op_code>
