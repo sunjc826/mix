@@ -16,6 +16,10 @@ namespace mix
         {
             os.send(std::declval<std::span<CharT>>())
         } -> std::same_as<Result<void>>;
+
+        {
+            os.send_char(std::declval<CharT>())
+        } -> std::same_as<Result<void>>;
     };
 
     template <typename CharT, typename IstreamT>
@@ -24,14 +28,27 @@ namespace mix
         {
             is.recv()
         } -> std::same_as<Result<std::span<CharT>>>;
+
+        {
+            is.recv_char()
+        } -> std::same_as<Result<std::optional<CharT>>>;
     };
 
     template <typename FromT, typename ToT, typename TransformerT>
     concept IsTransformer = requires(TransformerT transformer)
     {
         {
-            transformer.transform(std::declval<std::span<FromT>>())
-        } -> std::same_as<Result<std::span<ToT>>>; 
+            transformer.send(std::declval<std::span<FromT>>())
+        } -> std::same_as<Result<void>>;
+        {
+            transformer.send_char(std::declval<FromT>())
+        } -> std::same_as<Result<void>>;
+        {
+            transformer.recv()
+        } -> std::same_as<Result<std::span<ToT>>>;
+        {
+            transformer.recv_char()
+        } -> std::same_as<Result<std::optional<ToT>>>;
     };
 
     template <typename FromT, typename ToT, typename DownstreamT, typename TransformerT>
@@ -47,11 +64,20 @@ namespace mix
 
         Result<void> send(std::span<FromT> sv)
         {
-            Result<std::span<ToT>> transform_result = transformer.transform(sv);
-            if (!transform_result)
-                return Result<void>::failure();
-            downstream.send(transform_result.value());
-            return Result<void>::success();
+            transformer.send(sv).transform_value([this]{
+                return transformer.recv();
+            }).transform_value([this](std::span<ToT> transformed_sv){
+                return downstream.send(transformed_sv);
+            });
+        }
+
+        Result<void> send_char(FromT ch)
+        {
+            return transformer.send_char(ch).transform_value([this]{
+                return transformer.recv_char();
+            }).transform_value([this](ToT ch){
+                return downstream.send_char(ch);
+            });
         }
     };
 
@@ -59,7 +85,6 @@ namespace mix
     requires IsIstream<FromT, UpstreamT> && IsTransformer<FromT, ToT, TransformerT>
     class PullPipe
     {
-        
         TransformerT transformer;
         UpstreamT &upstream;
     public:
@@ -69,11 +94,20 @@ namespace mix
 
         Result<std::span<ToT>> recv()
         {
-            using ResultType = Result<std::span<ToT>>;
-            Result<std::span<FromT>> msg = upstream.recv();
-            if (!msg)
-                return ResultType::failure();
-            return transformer.transform(msg.value());
+            return upstream.recv().transform_value([this](std::span<FromT> sp){
+                return transformer.send(sp);
+            }).transform_value([this]{
+                return transformer.recv();
+            });
+        }
+
+        Result<std::optional<ToT>> recv_char()
+        {
+            return upstream.recv_char().transform_value([this](FromT ch){
+                return transformer.send_char(ch);
+            }).transform_value([this]{
+                return transformer.recv_char();
+            });
         }
     };
 
@@ -90,6 +124,11 @@ namespace mix
         {
             is >> s;            
             return Result<std::span<char>>::success(s);
+        }
+
+        Result<std::optional<char>> recv_char()
+        {
+            
         }
     };
     static_assert(IsIstream<char, StdIstream>);
@@ -109,6 +148,11 @@ namespace mix
                 return Result<void>::success();
             else
                 return Result<void>::failure();
+        }
+
+        Result<void> send_char(char ch)
+        {
+
         }
     };
     static_assert(IsOstream<char, StdOstream>);

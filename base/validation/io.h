@@ -12,6 +12,11 @@ struct MixIstream
     {
         
     }
+
+    Result<std::optional<ValidatedChar>> recv_char()
+    {
+
+    }
 };
 
 static_assert(IsIstream<ValidatedChar, MixIstream>);
@@ -19,6 +24,11 @@ static_assert(IsIstream<ValidatedChar, MixIstream>);
 struct MixOstream
 {
     Result<void> send(std::span<ValidatedChar> sp)
+    {
+
+    }
+
+    Result<void> send_char(ValidatedChar ch)
     {
 
     }
