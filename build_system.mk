@@ -83,7 +83,7 @@ define make_relocatable_object
 ifneq ($(strip $($(TARGET)_C_OBJECTS)),)
 $(call prepend_build_dir,$($(TARGET)_C_OBJECTS)): $(call prepend_build_dir,%.o) : $(call prepend_source_dir,%.c)
 	mkdir -p '$$(@D)'
-	$(CC) -o $$@ \
+	$(CC) -o '$$@' \
 	$(FLAGS) \
 	$(CFLAGS) \
 	$(OBJECT_FLAGS) \
@@ -102,7 +102,7 @@ endif
 ifneq ($(strip $($(TARGET)_CXX_OBJECTS)),)
 $(call prepend_build_dir,$($(TARGET)_CXX_OBJECTS)): $(call prepend_build_dir,%.o) : $(call prepend_source_dir,%.cpp)
 	mkdir -p '$$(@D)'
-	$(CXX) -o $$@ \
+	$(CXX) -o '$$@' \
 	$(FLAGS) \
 	$(CXXFLAGS) \
 	$(OBJECT_FLAGS) \

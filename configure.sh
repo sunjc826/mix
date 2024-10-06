@@ -2,32 +2,37 @@
 
 # Extremely simple configure script, mainly to support out of source build
 # Doesn't do the extensive checks that automake configure scripts do.
-
-SCRIPT_INVOCATION_DIR=$(pwd)
-SCRIPT_DIR=$(realpath "$(dirname "${BASH_SOURCE[0]}")")
-NUM_THREADS=
-CONFIG_CFLAGS=
-CONFIG_CXX_FLAGS=
-CONFIG_LDFLAGS=
+set -e
+configure_main()
+{
+local script_invocation_dir
+script_invocation_dir=$(pwd)
+local script_dir
+script_dir=$(realpath "$(dirname "${BASH_SOURCE[0]}")")
+local num_threads=
+local config_cflags=
+config_cxxflags=
+config_ldflags=
 while test $# -gt 0
 do
-    SHIFT_BY=1
+    local shift_by
+    shift_by=1
     case "$1" in
     --threads)
-        NUM_THREADS=$2
-        : $((SHIFT_BY++))
+        num_threads=$2
+        : $((shift_by++))
         ;;
     --cflags)
-        CONFIG_CFLAGS=$2
-        : $((SHIFT_BY++))
+        config_cflags=$2
+        : $((shift_by++))
         ;;
     --cxxflags)
-        CONFIG_CXX_FLAGS=$2
-        : $((SHIFT_BY++))
+        config_cxxflags=$2
+        : $((shift_by++))
         ;;
     --ldflags)
-        CONFIG_LDFLAGS=$2
-        : $((SHIFT_BY++))
+        config_ldflags=$2
+        : $((shift_by++))
         ;;
     --)
         shift
@@ -37,37 +42,40 @@ do
         echo "Unrecognized option $1"
         ;;
     esac
-    shift "$SHIFT_BY"
+    shift "$shift_by"
 done
 
-REMAINING_ARGS=("$@")
+remaining_args=("$@")
 
-MAKE_ARGS=("${REMAINING_ARGS[@]}")
+make_args=("${remaining_args[@]}")
 
-if test -n "$NUM_THREADS"
+if test -n "$num_threads"
 then
-    MAKE_ARGS+=(-j"$NUM_THREADS")
+    make_args+=(-j"$num_threads")
 fi
 
-if test -n "$CONFIG_CFLAGS"
+if test -n "$config_cflags"
 then
-    MAKE_ARGS+=(CFLAGS="$CONFIG_CFLAGS")
+    make_args+=(CFLAGS="$config_cflags")
 fi
 
-if test -n "$CONFIG_CXX_FLAGS"
+if test -n "$config_cxxflags"
 then
-    MAKE_ARGS+=(CXXFLAGS="$CONFIG_CXX_FLAGS")
+    make_args+=(CXXFLAGS="$config_cxxflags")
 fi
 
-if test -n "$CONFIG_LDFLAGS"
+if test -n "$config_ldflags"
 then
-    MAKE_ARGS+=(LDFLAGS="$CONFIG_LDFLAGS")
+    make_args+=(LDFLAGS="$config_ldflags")
 fi
 
 set -x
-echo "Configuring in $SCRIPT_INVOCATION_DIR"
+echo "Configuring in $script_invocation_dir"
 sed -r \
-    -e 's|@SRC_DIR@|'"$SCRIPT_DIR"'|' \
-    -e 's|@MAKE_ARGS@|'"${MAKE_ARGS[*]}"'|' \
-    "$SCRIPT_DIR"/template.mk > "$SCRIPT_INVOCATION_DIR"/Makefile
+    -e 's|@SRC_DIR@|'"$script_dir"'|' \
+    -e 's|@MAKE_ARGS@|'"${make_args[*]}"'|' \
+    "$script_dir"/template.mk > "$script_invocation_dir"/Makefile
+set +x
+}
 
+configure_main "$@"
