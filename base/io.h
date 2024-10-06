@@ -92,6 +92,7 @@ namespace mix
             : upstream(upstream)
         {}
 
+        [[gnu::flatten]]
         Result<std::span<ToT>> recv()
         {
             return upstream.recv().transform_value([this](std::span<FromT> sp){
@@ -101,10 +102,11 @@ namespace mix
             });
         }
 
+        [[gnu::flatten]]
         Result<std::optional<ToT>> recv_char()
         {
-            return upstream.recv_char().transform_value([this](FromT ch){
-                return transformer.send_char(ch);
+            return upstream.recv().transform_value([this](std::span<FromT> sp){
+                return transformer.send(sp);
             }).transform_value([this]{
                 return transformer.recv_char();
             });

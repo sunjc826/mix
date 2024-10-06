@@ -12,6 +12,7 @@ struct Char
     constexpr Char(char const *utf8_value) : utf8_value(utf8_value) {}
     constexpr Char(std::string_view utf8_value) : utf8_value(utf8_value) {}
     constexpr bool operator==(Char const &other) const = default;
+    constexpr size_t num_bytes() const { return utf8_value.size(); }
 };
 
 constexpr std::array<Char, 56> character_set

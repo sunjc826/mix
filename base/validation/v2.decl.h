@@ -28,6 +28,8 @@ using ValidatedRegisterIndex = ValidatedInt<IsRegisterIndex, NativeByte>;
 using ValidatedWord = ValidatedInt<IsMixWord>;
 using ValidatedPositiveWord = ValidatedInt<IsMixPositiveWord>;
 
-
+template <typename ItemT, size_t size = std::dynamic_extent>
+using ValidatedNonEmptySpan = ValidatedObject<std::span<ItemT, size>, IsNonEmpty<std::span<ItemT, size>>>; 
+using ValidatedNonEmptyStringView = ValidatedObject<std::string_view, IsNonEmpty<std::string_view>>;
 
 }

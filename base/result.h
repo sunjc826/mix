@@ -24,7 +24,7 @@ struct ResultTraits<Result<ValueT, ErrorT>>
 template <typename ValueT, typename ErrorT = void>
 class Result
 {
-    static const auto identity_error_transform = [](ErrorT error) {return error;};
+    static constexpr auto identity_error_transform = [](ErrorT error) { return error; };
     bool is_success_;
     union
     {
@@ -116,10 +116,16 @@ public:
     */
 
     template <typename ValueTransformT, typename ErrorTransformT>
-    Result<typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<ValueT>()))>::value_type, decltype(ErrorTransformT::operator()(std::declval<ErrorT>()))> 
+    Result<
+        typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<ValueT>()))>::value_type, 
+        typename ResultTraits<decltype(std::declval<ErrorTransformT>()(std::declval<ErrorT>()))>::value_type
+    >
     transform(ValueTransformT &&value_transform, ErrorTransformT &&error_transform = identity_error_transform)
     {
-        using ResultType = Result<decltype(std::declval<ValueTransformT>()(std::declval<ValueT>())), decltype(ErrorTransformT::operator()(std::declval<ErrorT>()))>;
+        using ResultType = Result<
+            typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<ValueT>()))>::value_type, 
+            typename ResultTraits<decltype(std::declval<ErrorTransformT>()(std::declval<ErrorT>()))>::value_type
+        >;
         if (is_success_)
         {
             if constexpr (ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<ValueT>()))>::is_result)
@@ -130,7 +136,14 @@ public:
                 return ResultType::success(value_transform(value_));
         }
         else
-            return ResultType::failure(error_transform(error_));
+        {
+            if constexpr (ResultTraits<decltype(std::declval<ErrorTransformT>()(std::declval<ErrorT>()))>::is_result)
+                return error_transform(error_);
+            else if constexpr (std::is_void_v<typename ResultType::error_type>)
+                return ResultType::failure();
+            else
+                return ResultType::failure(error_transform(error_));
+        }
     }
 
     template <typename ValueTransformT>
@@ -165,7 +178,7 @@ public:
 template <typename ErrorT>
 class Result<void, ErrorT>
 {
-    static const auto identity_error_transform = [](ErrorT error) {return error;};
+    static constexpr auto identity_error_transform = [](ErrorT error) {return error;};
     bool is_success_;
     union
     {
@@ -315,11 +328,17 @@ public:
     }
     */
 
-    template <typename ValueTransformT, typename ErrorT>
-    Result<typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<ValueT>()))>::value_type, ErrorT> 
-    transform(ValueTransformT &&value_transform, ErrorT error) const
+    template <typename ValueTransformT, typename ErrorProducerT>
+    Result<
+        typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<ValueT>()))>::value_type, 
+        typename ResultTraits<decltype(std::declval<ErrorProducerT>()())>::value_type
+    > 
+    transform(ValueTransformT &&value_transform, ErrorProducerT error_producer) const
     {
-        using ResultType = Result<typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<ValueT>()))>::value_type, ErrorT>;
+        using ResultType = Result<
+            typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<ValueT>()))>::value_type, 
+            typename ResultTraits<decltype(std::declval<ErrorProducerT>()())>::value_type
+        >;
         if (is_success_)
         {
             if constexpr (ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<ValueT>()))>::is_result)
@@ -330,7 +349,12 @@ public:
                 return ResultType::success(value_transform(value_));
         }
         else
-            return ResultType::failure(error);
+        {
+            if constexpr (ResultTraits<decltype(std::declval<ErrorProducerT>()())>::is_result)
+                return error_producer();
+            else
+                return ResultType::failure(error_producer);
+        }
     }
 
     template <typename ValueTransformT>
