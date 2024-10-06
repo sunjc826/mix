@@ -56,9 +56,9 @@ namespace mix
     class PushPipe
     {
         TransformerT transformer;
-        DownstreamT &downstream;
+        DownstreamT downstream;
     public:
-        explicit PushPipe(DownstreamT &downstream)
+        explicit PushPipe(DownstreamT downstream)
             : downstream(downstream)
         {}
 
@@ -86,9 +86,9 @@ namespace mix
     class PullPipe
     {
         TransformerT transformer;
-        UpstreamT &upstream;
+        UpstreamT upstream;
     public:
-        explicit PullPipe(UpstreamT &upstream)
+        explicit PullPipe(UpstreamT upstream)
             : upstream(upstream)
         {}
 

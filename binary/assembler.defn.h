@@ -1,9 +1,9 @@
 #pragma once
-#include "base/validation/validator.impl.h"
 #include <base/base.h>
 #include <base/error.h>
 #include <base/character_set.h>
 #include <base/io.h>
+#include <base/validation/io.h>
 #include <base/string.h>
 
 #include <istream>
@@ -271,8 +271,8 @@ public:
 
 class Assembler
 {
-    StdIstream &assembly;
-    StdOstream &binary;
+    PullPipe<char, ValidatedChar, StdIstream &, CharToMixCharTransformer> assembly;
+    PushPipe<ValidatedByte, char, StdOstream &, MixByteToCharTransformer> binary;
     string line;
     Cursor cursor;
     ValidatedWord location_counter;

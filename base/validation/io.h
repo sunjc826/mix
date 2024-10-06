@@ -1,5 +1,5 @@
 #pragma once
-#include "base/validation/v2.decl.h"
+
 #include <base/io.h>
 #include <base/character_set.h>
 #include <base/string.h>
@@ -105,5 +105,15 @@ struct CharToMixCharTransformer
 };
 
 static_assert(IsTransformer<char, ValidatedChar, CharToMixCharTransformer>);
+
+struct MixByteToCharTransformer
+{
+    Result<std::span<char>> recv();
+    Result<std::optional<char>> recv_char();
+    Result<void> send(std::span<ValidatedByte> sp);
+    Result<void> send_char(ValidatedByte ch);
+};
+
+static_assert(IsTransformer<ValidatedByte, char, MixByteToCharTransformer>);
 
 }
