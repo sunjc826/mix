@@ -4,6 +4,7 @@
 #include <base/character_set.h>
 #include <base/string.h>
 #include <base/validation/v2.h>
+#include <base/validation/types.h>
 namespace mix
 {
 
@@ -108,12 +109,24 @@ static_assert(IsTransformer<char, ValidatedChar, CharToMixCharTransformer>);
 
 struct MixByteToCharTransformer
 {
-    Result<std::span<char>> recv();
-    Result<std::optional<char>> recv_char();
-    Result<void> send(std::span<ValidatedByte> sp);
-    Result<void> send_char(ValidatedByte ch);
+    Result<std::span<char>> recv()
+    {
+        
+    }
+    Result<std::optional<char>> recv_char()
+    {
+
+    }
+    Result<void> send(std::span<Byte> sp)
+    {
+
+    }
+    Result<void> send_char(Byte ch)
+    {
+        
+    }
 };
 
-static_assert(IsTransformer<ValidatedByte, char, MixByteToCharTransformer>);
+static_assert(IsTransformer<Byte, char, MixByteToCharTransformer>);
 
 }

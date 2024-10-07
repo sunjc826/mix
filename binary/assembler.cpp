@@ -463,7 +463,7 @@ Assembler::assemble_line()
     using ResultType = Result<bool, Error>;
     if (assembly.eof())
         return ResultType::success(true);
-    
+
     if (!std::getline(assembly, line))
         return ResultType::failure(err_io);
     
