@@ -2,8 +2,8 @@
 SRC_DIR := @SRC_DIR@
 MAKE_ARGS := @MAKE_ARGS@
 
-.PHONY: all clean debug
-all clean debug:
+.PHONY: all clean debug compile_commands
+all clean debug compile_commands:
 	make -C $(SRC_DIR) BUILD_DIR=$$(pwd) $(MAKE_ARGS) $@
 
 echo_test:

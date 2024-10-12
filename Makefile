@@ -38,7 +38,7 @@ PSEUDO_TARGETS := linenoise
 
 simulator_PRIVATE_SOURCES := vm/instruction.cpp vm/register.cpp vm/machine.cpp
 
-assembler_PRIVATE_SOURCES := assembler.cpp
+assembler_PRIVATE_SOURCES := binary/assembler.cpp
 
 simulator_PRIVATE_DEPS := linenoise
 

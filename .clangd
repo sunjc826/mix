@@ -1,4 +1,2 @@
 CompileFlags:
-    Add:
-        - -I/workspaces/mix
-        - -std=c++20
+    Add: []

@@ -8,8 +8,19 @@ ALL_TARGETS=$(EXECUTABLE_TARGETS) $(STATIC_LIB_TARGETS) $(SHARED_LIB_TARGETS) $(
 .PHONY: all
 all: $(ALL_TARGETS);
 
+.PHONY: compile_commands
+compile_commands: clean_compile_commands $(BUILD_DIR)/compile_commands.json;
+	-rm $(SRC_DIR)/compile_commands.json
+	ln -s $(BUILD_DIR)/compile_commands.json $(SRC_DIR)/compile_commands.json
+
+.PHONY: clean_compile_commands
+clean_compile_commands:
+	-rm $(BUILD_DIR)/compile_commands.json
+
+$(BUILD_DIR)/compile_commands.json: $(foreach TARGET,$(ALL_TARGETS),compile_commands_$(TARGET));
+
 .PHONY: clean
-clean: $(foreach TARGET,$(ALL_TARGETS),clean_$(TARGET));
+clean: $(foreach TARGET,$(ALL_TARGETS),clean_$(TARGET)) clean_compile_commands;
 
 .PHONY: debug
 debug: $(foreach TARGET,$(ALL_TARGETS) $(PSEUDO_TARGETS),debug_$(TARGET));
@@ -83,7 +94,7 @@ define make_relocatable_object
 ifneq ($(strip $($(TARGET)_C_OBJECTS)),)
 $(call prepend_build_dir,$($(TARGET)_C_OBJECTS)): $(call prepend_build_dir,%.o) : $(call prepend_source_dir,%.c)
 	mkdir -p '$$(@D)'
-	$(CC) -o '$$@' \
+	$(SRC_DIR)/compiler_wrapper.sh --no-invoke-compiler --compile-commands-json '$(BUILD_DIR)/compile_commands.json' '$$^'  -- $(CC) -o '$$@' \
 	$(FLAGS) \
 	$(CFLAGS) \
 	$(OBJECT_FLAGS) \
@@ -97,12 +108,49 @@ $(call prepend_build_dir,$($(TARGET)_C_OBJECTS)): $(call prepend_build_dir,%.o) 
 	$($(TARGET)_OBJECT_FLAGS) \
 	$($(TARGET)_OBJECT_CFLAGS) \
 	$$^
+
+.PHONY: $(patsubst %.o,%.compile_commands,$($(TARGET)_C_OBJECTS))
+$(patsubst %.o,%.compile_commands,$($(TARGET)_C_OBJECTS)): %.compile_commands : $(call prepend_source_dir,%.c)
+	mkdir -p '$(BUILD_DIR)'
+	$(SRC_DIR)/compiler_wrapper.sh --compile-commands-json '$(BUILD_DIR)/compile_commands.json' '$$^'  -- $(CC) -o /dev/null \
+	$(FLAGS) \
+	$(CFLAGS) \
+	$(OBJECT_FLAGS) \
+	$(OBJECT_CFLAGS) \
+	$(if $($(TARGET)_IS_EXECUTABLE),$(EXECUTABLE_FLAGS) $(EXECUTABLE_OBJECT_CFLAGS)) \
+	$(if $($(TARGET)_IS_SHARED_LIB),$(SHARED_LIB_FLAGS) $(SHARED_LIB_OBJECT_CFLAGS)) \
+	$(if $($(TARGET)_IS_STATIC_LIB),$(STATIC_LIB_FLAGS) $(STATIC_LIB_OBJECT_CFLAGS)) \
+	$(if $($(TARGET)_IS_OBJECT_LIB),$(OBJECT_LIB_FLAGS) $(OBJECT_LIB_OBJECT_CFLAGS)) \
+	$($(TARGET)_FLAGS) \
+	$($(TARGET)_C_FLAGS) \
+	$($(TARGET)_OBJECT_FLAGS) \
+	$($(TARGET)_OBJECT_CFLAGS) \
+	$$^
+
 endif
 
 ifneq ($(strip $($(TARGET)_CXX_OBJECTS)),)
 $(call prepend_build_dir,$($(TARGET)_CXX_OBJECTS)): $(call prepend_build_dir,%.o) : $(call prepend_source_dir,%.cpp)
 	mkdir -p '$$(@D)'
-	$(CXX) -o '$$@' \
+	$(SRC_DIR)/compiler_wrapper.sh --compile-commands-json '$(BUILD_DIR)/compile_commands.json' '$$^'  -- $(CXX) -o '$$@' \
+	$(FLAGS) \
+	$(CXXFLAGS) \
+	$(OBJECT_FLAGS) \
+	$(OBJECT_CXXFLAGS) \
+	$(if $($(TARGET)_IS_EXECUTABLE),$(EXECUTABLE_FLAGS) $(EXECUTABLE_OBJECT_CXXFLAGS)) \
+	$(if $($(TARGET)_IS_SHARED_LIB),$(SHARED_LIB_FLAGS) $(SHARED_LIB_OBJECT_CXXFLAGS)) \
+	$(if $($(TARGET)_IS_STATIC_LIB),$(STATIC_LIB_FLAGS) $(STATIC_LIB_OBJECT_CXXFLAGS)) \
+	$(if $($(TARGET)_IS_OBJECT_LIB),$(OBJECT_LIB_FLAGS) $(OBJECT_LIB_OBJECT_CXXFLAGS)) \
+	$($(TARGET)_FLAGS) \
+	$($(TARGET)_CXXFLAGS) \
+	$($(TARGET)_OBJECT_FLAGS) \
+	$($(TARGET)_OBJECT_CXXFLAGS) \
+	$$^
+
+.PHONY: $(patsubst %.o,%.compile_commands,$($(TARGET)_CXX_OBJECTS))
+$(patsubst %.o,%.compile_commands,$($(TARGET)_CXX_OBJECTS)): %.compile_commands : $(call prepend_source_dir,%.cpp)
+	mkdir -p '$$(@D)'
+	$(SRC_DIR)/compiler_wrapper.sh --no-invoke-compiler --compile-commands-json '$(BUILD_DIR)/compile_commands.json' '$$^'  -- $(CXX) -o /dev/null \
 	$(FLAGS) \
 	$(CXXFLAGS) \
 	$(OBJECT_FLAGS) \
@@ -117,6 +165,7 @@ $(call prepend_build_dir,$($(TARGET)_CXX_OBJECTS)): $(call prepend_build_dir,%.o
 	$($(TARGET)_OBJECT_CXXFLAGS) \
 	$$^
 endif
+
 
 endef
 
@@ -143,6 +192,12 @@ debug_$(TARGET):
 
 endef
 
+define make_compile_commands_target
+.PHONY: compile_commands_$(TARGET)
+compile_commands_$(TARGET): $(patsubst %.o,%.compile_commands,$($(TARGET)_C_OBJECTS) $($(TARGET)_CXX_OBJECTS));
+
+endef
+
 define make_targets
 ifneq ($($(TARGET)_BINARY),)
 
@@ -161,6 +216,8 @@ endif
 $(make_clean_target)
 
 $(make_debug_target)
+
+$(make_compile_commands_target)
 
 endef
 
