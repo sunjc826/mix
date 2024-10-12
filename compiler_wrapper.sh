@@ -40,6 +40,11 @@ function compiler_wrapper_main()
         json_entry_arguments[-1]=${json_entry_arguments[-1]/%,/}
 
         local json_database_was_empty=false
+
+        local lockfile="$compile_commands_json".lock
+        local lockfile_fd
+        exec {lockfile_fd}>"$lockfile"
+        flock --exclusive "$lockfile_fd"
         if test -s "$compile_commands_json"
         then
             # remove from compilation database
@@ -65,6 +70,8 @@ function compiler_wrapper_main()
             printf '    }\n'
             printf ']\n'
         } >> "$compile_commands_json"
+
+        exec {lockfile_fd}>&-
     fi
 
     if test "$invoke_compiler" = true

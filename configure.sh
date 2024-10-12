@@ -18,6 +18,9 @@ do
     local shift_by
     shift_by=1
     case "$1" in
+    --parallel)
+        num_threads=$(nproc)
+        ;;
     --threads)
         num_threads=$2
         : $((shift_by++))
@@ -70,11 +73,19 @@ then
 fi
 
 set -x
+
 echo "Configuring in $script_invocation_dir"
+
 sed -r \
     -e 's|@SRC_DIR@|'"$script_dir"'|' \
     -e 's|@MAKE_ARGS@|'"${make_args[*]}"'|' \
     "$script_dir"/template.mk > "$script_invocation_dir"/Makefile
+
+if git rev-parse --is-inside-work-tree
+then
+    printf "*\n" > "$script_invocation_dir"/.gitignore
+fi
+
 set +x
 }
 

@@ -9,7 +9,7 @@ ALL_TARGETS=$(EXECUTABLE_TARGETS) $(STATIC_LIB_TARGETS) $(SHARED_LIB_TARGETS) $(
 all: $(ALL_TARGETS);
 
 .PHONY: compile_commands
-compile_commands: clean_compile_commands $(BUILD_DIR)/compile_commands.json;
+compile_commands: $(BUILD_DIR)/compile_commands.json;
 	-rm $(SRC_DIR)/compile_commands.json
 	ln -s $(BUILD_DIR)/compile_commands.json $(SRC_DIR)/compile_commands.json
 
@@ -194,7 +194,7 @@ endef
 
 define make_compile_commands_target
 .PHONY: compile_commands_$(TARGET)
-compile_commands_$(TARGET): $(patsubst %.o,%.compile_commands,$($(TARGET)_C_OBJECTS) $($(TARGET)_CXX_OBJECTS));
+compile_commands_$(TARGET): clean_compile_commands $(patsubst %.o,%.compile_commands,$($(TARGET)_C_OBJECTS) $($(TARGET)_CXX_OBJECTS));
 
 endef
 
