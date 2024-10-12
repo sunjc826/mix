@@ -9,6 +9,13 @@ local script_invocation_dir
 script_invocation_dir=$(pwd)
 local script_dir
 script_dir=$(realpath "$(dirname "${BASH_SOURCE[0]}")")
+pushd "$script_dir"
+# shellcheck source-path=SCRIPTDIR
+source lib.sh
+
+push_scope
+add_cleanup popd
+
 local num_threads=
 local config_cflags=
 config_cxxflags=
@@ -76,9 +83,15 @@ set -x
 
 echo "Configuring in $script_invocation_dir"
 
+# https://stackoverflow.com/questions/4219255/how-do-you-get-the-list-of-targets-in-a-makefile
+local make_targets
+make_targets=($(make -qp | awk -F':' '/^[a-zA-Z0-9][^$#\/\t=]*:([^=]|$)/ {split($1,A,/ /);for(i in A)print A[i]}' | sort -u
+))
+
 sed -r \
     -e 's|@SRC_DIR@|'"$script_dir"'|' \
     -e 's|@MAKE_ARGS@|'"${make_args[*]}"'|' \
+    -e 's|@MAKE_TARGETS@|'"${make_targets[*]}"'|' \
     "$script_dir"/template.mk > "$script_invocation_dir"/Makefile
 
 if git rev-parse --is-inside-work-tree
@@ -87,6 +100,10 @@ then
 fi
 
 set +x
+
+pop_scope
+
+return 0
 }
 
 configure_main "$@"

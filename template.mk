@@ -1,9 +1,10 @@
 # Template for use with the configure.sh script
 SRC_DIR := @SRC_DIR@
 MAKE_ARGS := @MAKE_ARGS@
+MAKE_TARGETS := @MAKE_TARGETS@
 
-.PHONY: all clean debug compile_commands
-all clean debug compile_commands:
+.PHONY: $(MAKE_TARGETS)
+$(MAKE_TARGETS):
 	make -C $(SRC_DIR) BUILD_DIR=$$(pwd) $(MAKE_ARGS) $@
 
 echo_test:
