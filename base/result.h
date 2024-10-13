@@ -9,6 +9,7 @@ struct ResultTraits
 {
     static constexpr bool is_result = false;
     using value_type = T;
+    using error_type = T;
 };
 
 template <typename ValueT, typename ErrorT>
@@ -19,6 +20,7 @@ struct ResultTraits<Result<ValueT, ErrorT>>
 {
     static constexpr bool is_result = true;
     using value_type = ValueT;
+    using error_type = ErrorT;
 };
 
 template <typename ValueT, typename ErrorT = void>
@@ -118,13 +120,13 @@ public:
     template <typename ValueTransformT, typename ErrorTransformT>
     Result<
         typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<ValueT>()))>::value_type, 
-        typename ResultTraits<decltype(std::declval<ErrorTransformT>()(std::declval<ErrorT>()))>::value_type
+        typename ResultTraits<decltype(std::declval<ErrorTransformT>()(std::declval<ErrorT>()))>::error_type
     >
     transform(ValueTransformT &&value_transform, ErrorTransformT &&error_transform = identity_error_transform)
     {
         using ResultType = Result<
             typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<ValueT>()))>::value_type, 
-            typename ResultTraits<decltype(std::declval<ErrorTransformT>()(std::declval<ErrorT>()))>::value_type
+            typename ResultTraits<decltype(std::declval<ErrorTransformT>()(std::declval<ErrorT>()))>::error_type
         >;
         if (is_success_)
         {
@@ -331,29 +333,29 @@ public:
     template <typename ValueTransformT, typename ErrorProducerT>
     Result<
         typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<ValueT>()))>::value_type, 
-        typename ResultTraits<decltype(std::declval<ErrorProducerT>()())>::value_type
+        typename ResultTraits<decltype(std::declval<ErrorProducerT>()())>::error_type
     > 
-    transform(ValueTransformT &&value_transform, ErrorProducerT error_producer) const
+    transform(ValueTransformT &&value_transform, ErrorProducerT &&error_producer) const
     {
         using ResultType = Result<
             typename ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<ValueT>()))>::value_type, 
-            typename ResultTraits<decltype(std::declval<ErrorProducerT>()())>::value_type
+            typename ResultTraits<decltype(std::declval<ErrorProducerT>()())>::error_type
         >;
         if (is_success_)
         {
             if constexpr (ResultTraits<decltype(std::declval<ValueTransformT>()(std::declval<ValueT>()))>::is_result)
-                return value_transform(value_);
+                return std::forward<ValueTransformT>(value_transform)(value_);
             else if constexpr (std::is_void_v<typename ResultType::value_type>)
                 return ResultType::success();
             else
-                return ResultType::success(value_transform(value_));
+                return ResultType::success(std::forward<ValueTransformT>(value_transform)(value_));
         }
         else
         {
             if constexpr (ResultTraits<decltype(std::declval<ErrorProducerT>()())>::is_result)
-                return error_producer();
+                return std::forward<ErrorProducerT>(error_producer)();
             else
-                return ResultType::failure(error_producer);
+                return ResultType::failure(std::forward<ErrorProducerT>(error_producer)());
         }
     }
 

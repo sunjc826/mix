@@ -4,8 +4,10 @@
 #include <base/character_set.h>
 #include <base/result.h>
 
-#include <limits>
+#include <istream>
 #include <concepts>
+#include <optional>
+#include <string>
 
 namespace mix
 {
@@ -14,103 +16,27 @@ namespace mix
     concept IsOstream = requires(OstreamT os)
     {
         {
-            os.send(std::declval<std::span<CharT>>())
+            os.write(std::declval<std::span<CharT>>())
         } -> std::same_as<Result<void>>;
 
         {
-            os.send_char(std::declval<CharT>())
+            os.putchar(std::declval<CharT>())
         } -> std::same_as<Result<void>>;
     };
 
     template <typename CharT, typename IstreamT>
-    concept IsIstream = requires(IstreamT is)
+    concept IsIstream = requires(IstreamT is, size_t buf_size)
     {
         {
-            is.recv()
+            is.read(buf_size)
+        } -> std::same_as<Result<std::span<CharT>>>;
+        {
+            is.readsome(buf_size)
         } -> std::same_as<Result<std::span<CharT>>>;
 
         {
-            is.recv_char()
+            is.getchar()
         } -> std::same_as<Result<std::optional<CharT>>>;
-    };
-
-    template <typename FromT, typename ToT, typename TransformerT>
-    concept IsTransformer = requires(TransformerT transformer)
-    {
-        {
-            transformer.send(std::declval<std::span<FromT>>())
-        } -> std::same_as<Result<void>>;
-        {
-            transformer.send_char(std::declval<FromT>())
-        } -> std::same_as<Result<void>>;
-        {
-            transformer.recv()
-        } -> std::same_as<Result<std::span<ToT>>>;
-        {
-            transformer.recv_char()
-        } -> std::same_as<Result<std::optional<ToT>>>;
-    };
-
-    template <typename FromT, typename ToT, typename DownstreamT, typename TransformerT>
-    requires IsOstream<ToT, DownstreamT> && IsTransformer<FromT, ToT, TransformerT>
-    class PushPipe
-    {
-        TransformerT transformer;
-        DownstreamT downstream;
-    public:
-        explicit PushPipe(DownstreamT downstream)
-            : downstream(downstream)
-        {}
-
-        Result<void> send(std::span<FromT> sv)
-        {
-            transformer.send(sv).transform_value([this]{
-                return transformer.recv();
-            }).transform_value([this](std::span<ToT> transformed_sv){
-                return downstream.send(transformed_sv);
-            });
-        }
-
-        Result<void> send_char(FromT ch)
-        {
-            return transformer.send_char(ch).transform_value([this]{
-                return transformer.recv_char();
-            }).transform_value([this](ToT ch){
-                return downstream.send_char(ch);
-            });
-        }
-    };
-
-    template <typename FromT, typename ToT, typename UpstreamT, typename TransformerT>
-    requires IsIstream<FromT, UpstreamT> && IsTransformer<FromT, ToT, TransformerT>
-    class PullPipe
-    {
-        TransformerT transformer;
-        UpstreamT upstream;
-    public:
-        explicit PullPipe(UpstreamT upstream)
-            : upstream(upstream)
-        {}
-
-        [[gnu::flatten]]
-        Result<std::span<ToT>> recv()
-        {
-            return upstream.recv().transform_value([this](std::span<FromT> sp){
-                return transformer.send(sp);
-            }).transform_value([this]{
-                return transformer.recv();
-            });
-        }
-
-        [[gnu::flatten]]
-        Result<std::optional<ToT>> recv_char()
-        {
-            return upstream.recv().transform_value([this](std::span<FromT> sp){
-                return transformer.send(sp);
-            }).transform_value([this]{
-                return transformer.recv_char();
-            });
-        }
     };
 
     class StdIstream
@@ -122,15 +48,33 @@ namespace mix
             : is(is)
         {}
 
-        Result<std::span<char>> recv()
+        Result<std::span<char>> read(size_t buf_size)
         {
-            is >> s;            
+            s.resize(buf_size);
+            is.readsome(s.data(), buf_size);
+            if (!is)
+                return Result<std::span<char>>::failure();
             return Result<std::span<char>>::success(s);
         }
 
-        Result<std::optional<char>> recv_char()
+
+        Result<std::span<char>> readsome(size_t buf_size)
         {
-            
+            s.resize(buf_size);
+            s.resize(is.readsome(s.data(), buf_size));
+            if (!is)
+                return Result<std::span<char>>::failure();
+            return Result<std::span<char>>::success(s);
+        }
+
+        Result<std::optional<char>> getchar()
+        {
+            if (!is)
+                return Result<std::optional<char>>::failure();
+            int ch = is.get();
+            if (ch == std::char_traits<char>::eof())
+                return Result<std::optional<char>>::success(std::nullopt);
+            return Result<std::optional<char>>::success(ch);
         }
     };
     static_assert(IsIstream<char, StdIstream>);
@@ -143,7 +87,7 @@ namespace mix
             : os(os)
         {}
 
-        Result<void> send(std::span<char> sv)
+        Result<void> write(std::span<char> sv)
         {
             os << std::string_view(sv.begin(), sv.end());
             if (os)
@@ -152,9 +96,13 @@ namespace mix
                 return Result<void>::failure();
         }
 
-        Result<void> send_char(char ch)
+        Result<void> putchar(char ch)
         {
-
+            os << ch;
+            if (os)
+                return Result<void>::success();
+            else
+                return Result<void>::failure();
         }
     };
     static_assert(IsOstream<char, StdOstream>);
