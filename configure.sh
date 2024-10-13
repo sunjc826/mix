@@ -13,7 +13,7 @@ pushd "$script_dir"
 # shellcheck source-path=SCRIPTDIR
 source lib.sh
 
-push_scope
+push_function_scope
 add_cleanup popd
 
 local num_threads=
@@ -101,8 +101,7 @@ fi
 
 set +x
 
-pop_scope
-
+pop_function_scope
 return 0
 }
 
