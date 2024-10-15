@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <type_traits>
 #include <utility>
 namespace mix
 {
@@ -26,6 +27,7 @@ struct ResultTraits<Result<ValueT, ErrorT>>
 template <typename ValueT, typename ErrorT = void>
 class Result
 {
+protected:
     static constexpr auto identity_error_transform = [](ErrorT error) { return error; };
     bool is_success_;
     union
@@ -37,32 +39,36 @@ class Result
     constexpr
     Result() {}
 
+    template <typename ...ArgsT>
+    constexpr
+    Result(std::bool_constant<false>, ArgsT &&...args) : 
+        is_success_(false),
+        error_(std::forward<ArgsT>(args)...) 
+    {}
+
+    template <typename ...ArgsT>
+    constexpr
+    Result(std::bool_constant<true>, ArgsT &&...args) : 
+        is_success_(true),
+        value_(std::forward<ArgsT>(args)...)
+    {}
+
 public:
     using value_type = ValueT;
     using error_type = ErrorT;
 
-    template <typename ...Ts>
+    template <typename ...ArgTs>
     static constexpr
-    Result success(Ts &&...value) 
+    Result success(ArgTs &&...value_args) 
     {
-        Result result;
-        result.is_success_ = true;
-        // Unfortunately, not friend of ValidatedInt/ValidatedWord
-        std::construct_at(&result.value_, std::forward<Ts>(value)...);
-        // Unfortunately, not constexpr
-        // new (&result.value_) ValueT (std::forward<Ts>(value)...);
-        // It seems that neither function fully meets our needs.
-        return result;
+        return Result(std::bool_constant<true>{}, std::forward<ArgTs>(value_args)...);
     }
 
-    template <typename ...Ts>
+    template <typename ...ArgTs>
     static constexpr
-    Result failure(Ts &&...error)
+    Result failure(ArgTs &&...error_args)
     {
-        Result result;
-        result.is_success_ = false;
-        std::construct_at(&result.error_, std::forward<Ts>(error)...);
-        return result;
+        return Result(std::bool_constant<false>{}, std::forward<ArgTs>(error_args)...);
     }
 
     constexpr 

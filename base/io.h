@@ -28,9 +28,6 @@ namespace mix
     concept IsIstream = requires(IstreamT is, size_t buf_size)
     {
         {
-            is.read(buf_size)
-        } -> std::same_as<Result<std::span<CharT>>>;
-        {
             is.readsome(buf_size)
         } -> std::same_as<Result<std::span<CharT>>>;
 
@@ -47,16 +44,6 @@ namespace mix
         StdIstream(std::istream &is)
             : is(is)
         {}
-
-        Result<std::span<char>> read(size_t buf_size)
-        {
-            s.resize(buf_size);
-            is.readsome(s.data(), buf_size);
-            if (!is)
-                return Result<std::span<char>>::failure();
-            return Result<std::span<char>>::success(s);
-        }
-
 
         Result<std::span<char>> readsome(size_t buf_size)
         {

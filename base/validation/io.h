@@ -6,6 +6,7 @@
 #include <base/string.h>
 #include <base/validation/v2.h>
 #include <base/validation/types.h>
+#include <base/data_structures/vector_queue.h>
 namespace mix
 {
 
@@ -24,67 +25,60 @@ struct MixIstream
 {
     StdIstream is;
     std::optional<char> char_buf; // No need for `std::array` since `max_char_len - 1 == 1`
-    std::vector<ValidatedChar> mix_char_buf;
+    VectorQueue<ValidatedChar> mix_char_buf;
+
     size_t head = 0;
 
     Result<std::optional<ValidatedChar>> getchar()
     {
         using ResultType = Result<std::optional<ValidatedChar>>;
-        if (head + 1 < mix_char_buf.size())
-            return ResultType::success(mix_char_buf[head++]);
-        
-        if (!char_buf)
-        {
-            return is.getchar().transform_value([this](std::optional<char> opt_ch) -> Result<std::optional<ValidatedChar>> {
-                if (!opt_ch)
-                    return ResultType::success(std::nullopt);
-                char const ch = *opt_ch;
-                return utf8_to_mix_char(std::string_view(&ch, 1)).transform(
-                    [](ValidatedChar mix_char){
-                        return std::optional<ValidatedChar>(mix_char);
-                    }, 
-                    [this, ch]() {
-                        return is.getchar().transform_value([this, ch](std::optional<char> opt_ch) {
-                            if (!opt_ch)
-                            {
-                                char_buf.emplace(ch);
-                                return ResultType::success(std::nullopt);
+        return mix_char_buf.try_dequeue().transform(
+            [](ValidatedChar ch){
+                return std::optional<ValidatedChar>{ch};
+            }, 
+            [this]{
+                if (!char_buf)
+                {
+                    return is.getchar().transform_value([this](std::optional<char> opt_ch) {
+                        if (!opt_ch)
+                            return ResultType::success(std::nullopt);
+                        char const ch = *opt_ch;
+                        return utf8_to_mix_char(std::string_view(&ch, 1)).transform(
+                            [](ValidatedChar mix_char){
+                                return std::optional<ValidatedChar>(mix_char);
+                            }, 
+                            [this, ch]{
+                                return is.getchar().transform_value([this, ch](std::optional<char> opt_ch) {
+                                    if (!opt_ch)
+                                    {
+                                        char_buf.emplace(ch);
+                                        return ResultType::success(std::nullopt);
+                                    }
+                                    std::array<char, 2> utf8_sequence{ch, *opt_ch};
+                                    return utf8_to_mix_char(std::string_view(utf8_sequence.data(), utf8_sequence.size()))
+                                        .transform_value([](ValidatedChar mix_char){return std::optional<ValidatedChar>(mix_char);});
+                                });
                             }
-                            std::array<char, 2> utf8_sequence{ch, *opt_ch};
-                            return utf8_to_mix_char(std::string_view(utf8_sequence.data(), utf8_sequence.size()))
-                                .transform_value([](ValidatedChar mix_char){return std::optional<ValidatedChar>(mix_char);});
-                        });
-                    }
-                );
-            });
-        }
-        else
-        {
-            return is.getchar().transform_value([this](std::optional<char> opt_ch){
-                if (!opt_ch)
-                    return ResultType::success(std::nullopt);
-                std::array<char, 2> utf8_sequence{*char_buf, *opt_ch};
-                return utf8_to_mix_char(std::string_view(utf8_sequence.data(), utf8_sequence.size()))
-                    .transform_value([](ValidatedChar mix_char){return std::optional<ValidatedChar>(mix_char);});
-            });
-        }
+                        );
+                    });
+                }
+                else
+                {
+                    return is.getchar().transform_value([this](std::optional<char> opt_ch){
+                        if (!opt_ch)
+                            return ResultType::success(std::nullopt);
+                        std::array<char, 2> utf8_sequence{*char_buf, *opt_ch};
+                        return utf8_to_mix_char(std::string_view(utf8_sequence.data(), utf8_sequence.size()))
+                            .transform_value([](ValidatedChar mix_char){return std::optional<ValidatedChar>(mix_char);});
+                    });
+                }
+            }
+        );
     }
 
     Result<std::span<ValidatedChar>> readsome(size_t buf_size)
     {
         
-    }
-
-    Result<std::span<ValidatedChar>> read(size_t buf_size)
-    {
-
-    }
-
-    Result<std::span<ValidatedChar>> recv()
-    {
-        size_t const old_head = 0;
-        head = mix_char_buf.size();
-        return Result<std::span<ValidatedChar>>::success(std::span(mix_char_buf.begin() + old_head, mix_char_buf.end()));
     }
 
     Result<void> send(std::span<char> sp)
